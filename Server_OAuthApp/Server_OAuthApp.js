@@ -9,6 +9,13 @@ dotenv.config();
 
 const app = express();
 
+app.use(cors({
+  origin: 'https://ooonyxxx.github.io.',
+  credentials: true               
+}));
+
+app.use(cookieParser());         
+
 app.use(session({
   name: 'sotn.sid',
   secret: process.env.SESSION_SECRET || 'fallback-secret-key',
@@ -20,13 +27,6 @@ app.use(session({
     secure: true
   }
 }));
-
-app.use(cors({
-  origin: 'https://ooonyxxx.github.io.',
-  credentials: true               
-}));
-
-app.use(cookieParser());         
 
 app.use(express.json());        
 
@@ -67,7 +67,7 @@ app.get('/auth/callback', async (req, res) => {
 
   const username = userRes.data.login;
 
-req.session.username = username;
+  req.session.username = username;
 
   res.redirect('https://ooonyxxx.github.io.');
 });
