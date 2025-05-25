@@ -17,6 +17,7 @@ app.use(cors({
 app.use(cookieParser());         
 
 app.use(session({
+  name: 'sotn.sid',
   secret: process.env.SESSION_SECRET || 'fallback-secret-key',
   resave: false,
   saveUninitialized: false,
