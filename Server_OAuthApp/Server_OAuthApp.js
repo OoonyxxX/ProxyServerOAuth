@@ -75,10 +75,8 @@ app.get('/auth/callback', async (req, res) => {
   console.log("Session before saving:", req.session);
   req.session.username = username;
   console.log("Session after saving:", req.session);
-  res.json({
-    success: true,
-    username,
-    session: req.session
+  req.session.save(() => {
+    res.redirect('https://ooonyxxx.github.io');
   });
   
 });
