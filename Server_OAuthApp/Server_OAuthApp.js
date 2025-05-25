@@ -83,6 +83,7 @@ app.get('/auth/me', (req, res) => {
   });
 });
 
-app.listen(8000, () => {
-  console.log('OAuth Proxy Server running on http://localhost:8000');
+const PORT = process.env.PORT;
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });
