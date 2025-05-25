@@ -9,22 +9,24 @@ dotenv.config();
 
 const app = express();
 
+app.use(cors({
+  origin: 'https://ooonyxxx.github.io.',
+  credentials: true               
+}));
+
+app.use(cookieParser());         
+
 app.use(session({
   secret: process.env.SESSION_SECRET || 'fallback-secret-key',
   resave: false,
   saveUninitialized: false,
   cookie: {
-    //httpOnly: true,
+    httpOnly: true,
     sameSite: 'none',
     secure: true
   }
 }));
 
-app.use(cors({
-  origin: 'https://ooonyxxx.github.io.',
-  credentials: true               
-}));
-app.use(cookieParser());         
 app.use(express.json());        
 
 
