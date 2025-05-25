@@ -67,9 +67,16 @@ app.get('/auth/callback', async (req, res) => {
 
   const username = userRes.data.login;
 
+  //req.session.username = username;
+  //res.redirect('https://ooonyxxx.github.io.');
+  
   req.session.username = username;
-
-  res.redirect('https://ooonyxxx.github.io.');
+  res.json({
+    success: true,
+    username,
+    session: req.session
+  });
+  
 });
 
 app.get('/auth/me', (req, res) => {
