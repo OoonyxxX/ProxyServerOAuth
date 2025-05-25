@@ -76,8 +76,16 @@ app.get('/auth/callback', async (req, res) => {
   req.session.username = username;
   console.log("Session after saving:", req.session);
   req.session.save(() => {
-    res.redirect('https://ooonyxxx.github.io');
-  });
+  res.send(`
+    <html>
+      <body>
+        <script>
+          window.location.href = "https://ooonyxxx.github.io";
+        </script>
+      </body>
+    </html>
+  `);
+});
   
 });
 
