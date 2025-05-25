@@ -30,7 +30,7 @@ app.use(express.json());
 
 const CLIENT_ID = process.env.GITHUB_CLIENT_ID;
 const CLIENT_SECRET = process.env.GITHUB_CLIENT_SECRET;
-const REDIRECT_URI = 'http://localhost:8000/auth/callback';
+const REDIRECT_URI = 'https://sotn2-auth-proxy.onrender.com/auth/callback';
 
 app.get('/auth/login', (req, res) => {
   const githubAuthUrl = `https://github.com/login/oauth/authorize?client_id=${CLIENT_ID}&redirect_uri=${REDIRECT_URI}&scope=read:user`;
