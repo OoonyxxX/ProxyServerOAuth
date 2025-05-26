@@ -79,16 +79,9 @@ app.get('/auth/callback', async (req, res) => {
   console.log("Session before saving:", req.session);
   req.session.username = username;
   console.log("Session after saving:", req.session);
-  req.session.save(() => {
-    res.send(`
-      <html>
-        <body>
-          <script>
-            window.location.href = "https://ooonyxxx.github.io";
-          </script>
-        </body>
-      </html>
-    `);
+  req.session.save(err => {
+    if (err) console.error(err);
+    res.redirect('https://ooonyxxx.github.io');
   });
   
 });
@@ -97,9 +90,6 @@ app.get('/auth/me', (req, res) => {
   if (!req.session.username) {
     return res.status(401).json({ authorized: false });
   }
-  
-  console.log(req.headers.origin, res.getHeader('Access-Control-Allow-Origin1'));
-  
   res.json({
     authorized: true,
     username: req.session.username
