@@ -27,7 +27,8 @@ app.use(session({
   cookie: {
     httpOnly: true,
     sameSite: 'none',
-    secure: true
+    secure: true,
+	domain: 'sotn2-auth-proxy.onrender.com'
   }
 }));
 
@@ -79,26 +80,26 @@ app.get('/auth/callback', async (req, res) => {
   req.session.username = username;
   console.log("Session after saving:", req.session);
   req.session.save(() => {
-  res.send(`
-    <html>
-      <body>
-        <script>
-          window.location.href = "https://ooonyxxx.github.io";
-        </script>
-      </body>
-    </html>
-  `);
-});
+    res.send(`
+      <html>
+        <body>
+          <script>
+            window.location.href = "https://ooonyxxx.github.io";
+          </script>
+        </body>
+      </html>
+    `);
+  });
   
 });
-
-console.log(req.headers.origin, res.getHeader('Access-Control-Allow-Origin1'));
 
 app.get('/auth/me', (req, res) => {
   if (!req.session.username) {
     return res.status(401).json({ authorized: false });
   }
-
+  
+  console.log(req.headers.origin, res.getHeader('Access-Control-Allow-Origin1'));
+  
   res.json({
     authorized: true,
     username: req.session.username
