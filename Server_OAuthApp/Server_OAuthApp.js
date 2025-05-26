@@ -10,8 +10,11 @@ dotenv.config();
 const app = express();
 
 app.use(cors({
-  origin: 'https://ooonyxxx.github.io.',
-  credentials: true               
+  origin: [
+    'https://ooonyxxx.github.io',
+    'https://ooonyxxx.github.io.'
+  ],
+  credentials: true
 }));
 
 app.use(cookieParser());         
@@ -98,6 +101,7 @@ app.get('/auth/me', (req, res) => {
     authorized: true,
     username: req.session.username
   });
+  console.log(req.headers.origin, res.getHeader('Access-Control-Allow-Origin'));
 });
 
 const PORT = process.env.PORT;
