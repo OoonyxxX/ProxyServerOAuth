@@ -92,7 +92,7 @@ app.get('/auth/callback', async (req, res) => {
   
 });
 
-  console.log(req.headers.origin, res.getHeader('Access-Control-Allow-Origin1'));
+console.log(req.headers.origin, res.getHeader('Access-Control-Allow-Origin1'));
 
 app.get('/auth/me', (req, res) => {
   if (!req.session.username) {
@@ -105,7 +105,7 @@ app.get('/auth/me', (req, res) => {
   });
 });
 
-  console.log(req.headers.origin, res.getHeader('Access-Control-Allow-Origin2'));
+console.log(req.headers.origin, res.getHeader('Access-Control-Allow-Origin2'));
 
 const PORT = process.env.PORT;
 app.listen(PORT, () => {
