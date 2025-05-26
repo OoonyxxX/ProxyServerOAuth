@@ -106,8 +106,6 @@ app.get('/auth/me', (req, res) => {
   });
 });
 
-console.log(req.headers.origin, res.getHeader('Access-Control-Allow-Origin2'));
-
 const PORT = process.env.PORT;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
