@@ -4,6 +4,7 @@ const dotenv = require('dotenv');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const session = require('express-session');
+const FileStore = require('session-file-store')(session);
 dotenv.config();
 
 const app = express();
@@ -11,6 +12,14 @@ const app = express();
 const autoDeploy = false;
 const jobQueue  = []; 
 let isDeploying = false;
+
+const fs = require('fs');
+const path = require('path');
+
+const sessionsDir = path.join(__dirname, 'sessions');
+if (!fs.existsSync(sessionsDir)) fs.mkdirSync(sessionsDir);
+
+const WEEK = 60 * 60 * 24 * 7
 
 app.use(cors({
   origin: [
@@ -26,6 +35,11 @@ app.set('trust proxy', 1);
 
 app.use(session({
   name: 'sotn.sid',
+    store: new FileStore({
+    path: sessionsDir,
+    ttl: WEEK,
+    retries: 1
+  }),
   secret: process.env.SESSION_SECRET || 'fallback-secret-key',
   resave: false,
   saveUninitialized: false,
@@ -33,7 +47,8 @@ app.use(session({
     httpOnly: true,
     sameSite: 'none',
     secure: true,
-	domain: 'sotn2-auth-proxy.onrender.com'
+	maxAge: WEEK * 1000
+//	domain: 'sotn2-auth-proxy.onrender.com'
   }
 }));
 
