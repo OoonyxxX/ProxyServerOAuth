@@ -4,11 +4,13 @@ const dotenv = require('dotenv');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
 
+
+const fs = require('fs');
+const path = require('path');
 const sessionsDir = path.join(__dirname, 'sessions');
 console.log('Sessions directory:', sessionsDir);
 fs.mkdirSync(sessionsDir, { recursive: true });
-const fs = require('fs');
-const path = require('path');
+
 
 const session = require('express-session');
 const FileStore = require('session-file-store')(session);
