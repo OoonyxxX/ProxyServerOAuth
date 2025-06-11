@@ -202,15 +202,24 @@ async function prepareCommit (added, updated, deleted, owner, repo, path, branch
     const content = Buffer.from(get.data.content, 'base64').toString();
     const markers = JSON.parse(content);
 	
-	const newMarkers = markers
-      .filter(m => !deleted.includes(m.id))
-      .map(m => {
-        const u = updated.find(x => x.id === m.id);
-        return u ? u : m;
-      });
-    newMarkers.push(...added);
+	let merged = [...markers, ...added];
 	
-    const newContent = Buffer.from(JSON.stringify(newMarkers, null, 2)).toString('base64');
+	merged = merged.map(m => {
+	  const upd = updated.find(u => u.id === m.id);
+	  return upd ? upd : m;
+	});
+	
+	merged = merged.filter(m => !deleted.includes(m.id));
+	
+	//const newMarkers = markers
+   //   .filter(m => !deleted.includes(m.id))
+   //   .map(m => {
+    //    const u = updated.find(x => x.id === m.id);
+   //     return u ? u : m;
+   //   });
+    //newMarkers.push(...added);
+	
+    const newContent = Buffer.from(JSON.stringify(merged, null, 2)).toString('base64');
 	return { newContent, sha };
 }
 
