@@ -173,7 +173,7 @@ async function processNextJob() {
 
 
 app.post('/api/update-markers', async (req, res) => {
-  //const { diff } = req.body;
+  const { diff } = req.body;
   const diff = JSON.parse(JSON.stringify(req.body.diff));
   const { owner, repo, path, branch, accessToken, username } = extractFromSession(req);
 
