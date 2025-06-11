@@ -117,7 +117,7 @@ async function processNextJob() {
   const branch = 'main';
   
   try {
-    // 1) Читаем markers.json
+
 	const get = await axios.get(
 	  `https://api.github.com/repos/${owner}/${repo}/contents/${path}`,
 	  { headers: { Authorization: `Bearer ${accessToken}` },
@@ -139,7 +139,7 @@ async function processNextJob() {
     const newContent = Buffer.from(JSON.stringify(newMarkers, null, 2)).toString('base64');
     await axios.put(
       `https://api.github.com/repos/${owner}/${repo}/contents/${path}`,
-      { message: `Update markers by ${req.session.username}`,
+      { message: `Update markers by ${username}`,
         content: newContent,
         sha,
         branch
@@ -158,15 +158,13 @@ async function processNextJob() {
   }
     catch (err) {
     console.error('Job processing failed:', err);
-    // здесь можно логировать или уведомлять об ошибке
   }
   finally {
-    // идём к следующей задаче, даже если эта упала
     processNextJob();
   }
 }
   
-// 1) Применить diff и закоммитить markers.json
+  
 app.post('/api/update-markers', (req, res) => {
   const token = req.session.accessToken;
   if (!token) return res.status(401).json({ error: 'Not authorized' });
