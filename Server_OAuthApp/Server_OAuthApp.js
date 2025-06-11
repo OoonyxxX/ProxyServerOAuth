@@ -8,7 +8,7 @@ dotenv.config();
 
 const app = express();
 
-const autoDeploy = false;
+const autoDeploy = true;
 const jobQueue  = []; 
 let processing = false;
 
