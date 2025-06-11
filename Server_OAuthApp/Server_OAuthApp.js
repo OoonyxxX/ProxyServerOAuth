@@ -16,8 +16,9 @@ let isDeploying = false;
 const fs = require('fs');
 const path = require('path');
 
-const sessionsDir = path.join(__dirname, 'sessions');
-if (!fs.existsSync(sessionsDir)) fs.mkdirSync(sessionsDir);
+const sessionsDir = path.resolve(process.cwd(), 'sessions');
+console.log('Sessions directory:', sessionsDir);
+fs.mkdirSync(sessionsDir, { recursive: true });
 
 const WEEK = 60 * 60 * 24 * 7
 
