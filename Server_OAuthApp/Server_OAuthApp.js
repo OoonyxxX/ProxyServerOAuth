@@ -125,16 +125,14 @@ app.get('/auth/me', (req, res) => {
 
 function enqueueJob(job) {
   jobQueue.push(job);
-  processNextJob();
+  if (!isDeploying) processNextJob();
 }
 
 async function processNextJob() {
-  if (isDeploying) return;
-  const job = jobQueue.shift();
-  if (!job) return;
+  if (isDeploying || jobQueue.length === 0) return;
 
   isDeploying = true;
-  const { diff, owner, repo, path, branch, accessToken, res } = job;
+  const { diff, owner, repo, path, branch, accessToken, res } = jobQueue.shift();
 
   try {
     const { newContent, sha } = await prepareCommit(diff, owner, repo, path, branch, accessToken);
@@ -143,7 +141,7 @@ async function processNextJob() {
     await axios.put(
       `https://api.github.com/repos/${owner}/${repo}/contents/${path}`,
       {
-        message: `Update markers by ${job.username}`,
+        message: `Update markers by ${username}`,
         content: newContent,
         sha,
         branch,
@@ -155,7 +153,12 @@ async function processNextJob() {
     do {
       await sleep(5000);
       status = await getPagesDeploymentStatus(accessToken, owner, repo);
-    } while (status !== 'built');
+    } while (status !== 'built' && status !== 'errored');
+	    if (status === 'built') {
+      res.json({ ok: true });
+    } else {
+      throw new Error('Deployment errored');
+    }
   } catch (err) {
     console.error('Job failed:', err.response?.data || err.message);
     res.status(500).json({ ok: false, error: err.message });
@@ -169,12 +172,11 @@ async function processNextJob() {
 
 
 
-app.post('/api/update-markers', (req, res) => {
+app.post('/api/update-markers', async (req, res) => {
   const { diff } = req.body;
   const { owner, repo, path, branch, accessToken, username } = extractFromSession(req);
 
   enqueueJob({ diff, owner, repo, path, branch, accessToken, username, res });
-  res.json({ ok: true });
 });
 
 
