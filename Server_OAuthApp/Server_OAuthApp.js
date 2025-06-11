@@ -132,10 +132,10 @@ async function processNextJob() {
   if (isDeploying || jobQueue.length === 0) return;
 
   isDeploying = true;
-  const { diff, owner, repo, path, branch, accessToken, username, res } = jobQueue.shift();
+  const { added, updated, deleted, owner, repo, path, branch, accessToken, username, res } = jobQueue.shift();
 
   try {
-    const { newContent, sha } = await prepareCommit(diff, owner, repo, path, branch, accessToken);
+    const { newContent, sha } = await prepareCommit(added, updated, deleted, owner, repo, path, branch, accessToken);
 
     // 2) Запушить изменения
     await axios.put(
@@ -174,10 +174,10 @@ async function processNextJob() {
 
 app.post('/api/update-markers', async (req, res) => {
   console.log('Update-markers body:', req.body);
-  const { diff } = req.body;
+  const { added, updated, deleted } = req.body;
   const { owner, repo, path, branch, accessToken, username } = extractFromSession(req);
 
-  enqueueJob({ diff, owner, repo, path, branch, accessToken, username, res });
+  enqueueJob({ added, updated, deleted, owner, repo, path, branch, accessToken, username, res });
 });
 
 
@@ -191,8 +191,7 @@ function extractFromSession (req) {
 	return { owner, repo, path, branch, accessToken, username };
 }
 
-async function prepareCommit (diff, owner, repo, path, branch, accessToken) {
-	const { added, updated, deleted } = diff;
+async function prepareCommit (added, updated, deleted, owner, repo, path, branch, accessToken) {
 	const get = await axios.get(
 	  `https://api.github.com/repos/${owner}/${repo}/contents/${path}`,
 	  { headers: { Authorization: `Bearer ${accessToken}` },
