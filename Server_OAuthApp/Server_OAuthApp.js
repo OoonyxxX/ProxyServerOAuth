@@ -132,7 +132,7 @@ async function processNextJob() {
   if (isDeploying || jobQueue.length === 0) return;
 
   isDeploying = true;
-  const { diff, owner, repo, path, branch, accessToken, res } = jobQueue.shift();
+  const { diff, owner, repo, path, branch, accessToken, username, res } = jobQueue.shift();
 
   try {
     const { newContent, sha } = await prepareCommit(diff, owner, repo, path, branch, accessToken);
