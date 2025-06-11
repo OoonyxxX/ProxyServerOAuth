@@ -4,10 +4,13 @@ const dotenv = require('dotenv');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const session = require('express-session');
-
 dotenv.config();
 
 const app = express();
+
+const autoDeploy = false;
+const jobQueue  = []; 
+let processing = false;
 
 app.use(cors({
   origin: [
@@ -99,58 +102,105 @@ app.get('/auth/me', (req, res) => {
   });
 });
 
-// 1) Применить diff и закоммитить markers.json
-app.post('/api/update-markers', async (req, res) => {
-  const token = req.session.accessToken;
-  if (!token) return res.status(401).json({ error: 'Not authorized' });
-
-  const { added, updated, deleted } = req.body;
-  const owner = req.session.username;      // или жёстко 'OoonyxxX'
+async function processNextJob() {
+  if (jobQueue.length === 0) {
+    processing = false;
+    return;
+  }
+  processing = true;
+  const { username, accessToken, diff } = jobQueue.shift();
+  const { added, updated, deleted } = diff;
+  
+  const owner = username;
   const repo  = 'ooonyxxx.github.io';
   const path  = 'markers.json';
   const branch = 'main';
-
-  // 1. Получить файл
-  const get = await axios.get(
-    `https://api.github.com/repos/${owner}/${repo}/contents/${path}`,
-    { headers: { Authorization: `Bearer ${token}` },
-      params: { ref: branch }
+  
+  try {
+    // 1) Читаем markers.json
+	const get = await axios.get(
+	  `https://api.github.com/repos/${owner}/${repo}/contents/${path}`,
+	  { headers: { Authorization: `Bearer ${accessToken}` },
+	    params: { ref: branch }
+	  }
+	);
+    const sha     = get.data.sha;
+    const content = Buffer.from(get.data.content, 'base64').toString();
+    const markers = JSON.parse(content);
+	
+	const newMarkers = markers
+      .filter(m => !deleted.includes(m.id))
+      .map(m => {
+        const u = updated.find(x => x.id === m.id);
+        return u ? u : m;
+      });
+    newMarkers.push(...added);
+	
+    const newContent = Buffer.from(JSON.stringify(newMarkers, null, 2)).toString('base64');
+    await axios.put(
+      `https://api.github.com/repos/${owner}/${repo}/contents/${path}`,
+      { message: `Update markers by ${req.session.username}`,
+        content: newContent,
+        sha,
+        branch
+      },
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+	
+	
+    if (autoDeploy) {
+	  await axios.post(
+		`https://api.github.com/repos/${owner}/${repo}/pages/builds`,
+		{},
+		{ headers: { Authorization: `Bearer ${accessToken}` } }
+	  );
     }
-  );
-  const sha     = get.data.sha;
-  const content = Buffer.from(get.data.content, 'base64').toString();
-  const markers = JSON.parse(content);
-
-  // 2. Применить diff
-  let newMarkers = markers
-    .filter(m => !deleted.includes(m.id))
-    .map(m => {
-      const u = updated.find(x => x.id === m.id);
-      return u ? u : m;
-    });
-  newMarkers.push(...added);
-
-  // 3. Закоммитить обратно
-  const newContent = Buffer.from(JSON.stringify(newMarkers, null, 2)).toString('base64');
-  await axios.put(
-    `https://api.github.com/repos/${owner}/${repo}/contents/${path}`,
-    { message: `Update markers by ${req.session.username}`,
-      content: newContent,
-      sha,
-      branch
-    },
-    { headers: { Authorization: `Bearer ${token}` } }
-  );
-
-  // 4. Запустить Pages-сборку
-  await axios.post(
-    `https://api.github.com/repos/${owner}/${repo}/pages/builds`,
-    {},
-    { headers: { Authorization: `Bearer ${token}` } }
-  );
-
+  }
+    catch (err) {
+    console.error('Job processing failed:', err);
+    // здесь можно логировать или уведомлять об ошибке
+  }
+  finally {
+    // идём к следующей задаче, даже если эта упала
+    processNextJob();
+  }
+}
+  
+// 1) Применить diff и закоммитить markers.json
+app.post('/api/update-markers', (req, res) => {
+  const token = req.session.accessToken;
+  if (!token) return res.status(401).json({ error: 'Not authorized' });
+  
+  jobQueue.push({
+    username:    req.session.username,
+    accessToken: req.session.accessToken,
+    diff:        req.body
+  });
+  
+  if (!processing) processNextJob();
+  
+  
   // 5. Ответить клиенту
   res.json({ ok: true });
+});
+
+app.post('/api/trigger-deploy', async (req, res) => {
+  const token = req.session.accessToken;
+  const owner = req.session.username;
+  if (!token) return res.status(401).json({ error: 'Not authorized' });
+
+  try {
+    await axios.post(
+      `https://api.github.com/repos/${owner}/ooonyxxx.github.io/pages/builds`,
+      {},
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    res.json({ ok: true, message: 'Deploy started' });
+  }
+  catch (err) {
+    console.error('Deploy trigger failed:', err);
+    res.status(500).json({ error: 'Deploy failed to start' });
+  }
 });
 
 // 2) Проверить статус сборки
