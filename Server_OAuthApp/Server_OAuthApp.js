@@ -10,7 +10,7 @@ const app = express();
 
 const autoDeploy = false;
 const jobQueue  = []; 
-let processing = false;
+let isDeploying = false;
 
 app.use(cors({
   origin: [
@@ -37,7 +37,7 @@ app.use(session({
   }
 }));
 
-app.use(express.json());        
+app.use(express.json());
 
 
 const CLIENT_ID = process.env.GITHUB_CLIENT_ID;
@@ -76,8 +76,6 @@ app.get('/auth/callback', async (req, res) => {
 
   const username = userRes.data.login;
 
-  //req.session.username = username;
-  //res.redirect('https://ooonyxxx.github.io.');
   console.log("Received code:", req.query.code);
   console.log("Access token:", accessToken);
   console.log("GitHub user:", username);
@@ -102,22 +100,76 @@ app.get('/auth/me', (req, res) => {
   });
 });
 
-async function processNextJob() {
-  if (jobQueue.length === 0) {
-    processing = false;
-    return;
-  }
-  processing = true;
-  const { username, accessToken, diff } = jobQueue.shift();
-  const { added, updated, deleted } = diff;
-  
-  const owner = username;
-  const repo  = 'ooonyxxx.github.io';
-  const path  = 'markers.json';
-  const branch = 'main';
-  
-  try {
 
+
+
+function enqueueJob(job) {
+  jobQueue.push(job);
+  processNextJob();
+}
+
+async function processNextJob() {
+  if (isDeploying) return;
+  const job = jobQueue.shift();
+  if (!job) return;
+
+  isDeploying = true;
+  const { diff, owner, repo, path, branch, accessToken, res } = job;
+
+  try {
+    const { newContent, sha } = await prepareCommit(diff, owner, repo, path, branch, accessToken);
+
+    // 2) Запушить изменения
+    await axios.put(
+      `https://api.github.com/repos/${owner}/${repo}/contents/${path}`,
+      {
+        message: `Update markers by ${job.username}`,
+        content: newContent,
+        sha,
+        branch,
+      },
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+
+    let status;
+    do {
+      await sleep(5000);
+      status = await getPagesDeploymentStatus(accessToken, owner, repo);
+    } while (status !== 'built');
+  } catch (err) {
+    console.error('Job failed:', err.response?.data || err.message);
+    res.status(500).json({ ok: false, error: err.message });
+  } finally {
+    isDeploying = false;
+    processNextJob();
+  }
+}
+
+
+
+
+
+app.post('/api/update-markers', (req, res) => {
+  const { diff } = req.body;
+  const { owner, repo, path, branch, accessToken, username } = extractFromSession(req);
+
+  enqueueJob({ diff, owner, repo, path, branch, accessToken, username, res });
+  res.json({ ok: true });
+});
+
+
+function extractFromSession (req) {
+	const accessToken = req.session.accessToken;
+	const owner = 'OoonyxxX';
+	const username = req.session.username;
+	const repo  = 'ooonyxxx.github.io';
+	const path  = 'markers.json';
+	const branch = 'main';
+	return { owner, repo, path, branch, accessToken, username };
+}
+
+async function prepareCommit (diff, owner, repo, path, branch, accessToken) {
+	const { added, updated, deleted } = diff;
 	const get = await axios.get(
 	  `https://api.github.com/repos/${owner}/${repo}/contents/${path}`,
 	  { headers: { Authorization: `Bearer ${accessToken}` },
@@ -137,82 +189,32 @@ async function processNextJob() {
     newMarkers.push(...added);
 	
     const newContent = Buffer.from(JSON.stringify(newMarkers, null, 2)).toString('base64');
-    await axios.put(
-      `https://api.github.com/repos/${owner}/${repo}/contents/${path}`,
-      { message: `Update markers by ${username}`,
-        content: newContent,
-        sha,
-        branch
-      },
-      { headers: { Authorization: `Bearer ${accessToken}` } }
-    );
-	
-	
-    if (autoDeploy) {
-	  await axios.post(
-		`https://api.github.com/repos/${owner}/${repo}/pages/builds`,
-		{},
-		{ headers: { Authorization: `Bearer ${accessToken}` } }
-	  );
-    }
-  }
-    catch (err) {
-    console.error('Job processing failed:', err);
-  }
-  finally {
-    processNextJob();
-  }
+	return { newContent, sha };
 }
-  
-  
-app.post('/api/update-markers', (req, res) => {
-  const token = req.session.accessToken;
-  if (!token) return res.status(401).json({ error: 'Not authorized' });
-  
-  jobQueue.push({
-    username:    req.session.username,
-    accessToken: req.session.accessToken,
-    diff:        req.body
-  });
-  
-  if (!processing) processNextJob();
-  
-  
-  // 5. Ответить клиенту
-  res.json({ ok: true });
-});
 
-app.post('/api/trigger-deploy', async (req, res) => {
-  const token = req.session.accessToken;
-  const owner = req.session.username;
-  if (!token) return res.status(401).json({ error: 'Not authorized' });
-
-  try {
-    await axios.post(
-      `https://api.github.com/repos/${owner}/ooonyxxx.github.io/pages/builds`,
-      {},
-      { headers: { Authorization: `Bearer ${token}` } }
+async function getPagesDeploymentStatus (accessToken, owner, repo) {
+    const builds = await axios.get(
+        `https://api.github.com/repos/${owner}/${repo}/pages/builds`,
+        { headers: { Authorization: `Bearer ${accessToken}` } }
     );
-    res.json({ ok: true, message: 'Deploy started' });
-  }
-  catch (err) {
-    console.error('Deploy trigger failed:', err);
-    res.status(500).json({ error: 'Deploy failed to start' });
-  }
-});
+	const latest = builds.data[0];
+	return latest.status;
+}
 
-// 2) Проверить статус сборки
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 app.get('/api/deploy-status', async (req, res) => {
-  const token = req.session.accessToken;
-  const owner = req.session.username;
+  const accessToken = req.session.accessToken;
+  const owner = 'OoonyxxX';
   const repo  = 'ooonyxxx.github.io';
-  // Получим последний билд
   const builds = await axios.get(
     `https://api.github.com/repos/${owner}/${repo}/pages/builds`,
-    { headers: { Authorization: `Bearer ${token}` } }
+    { headers: { Authorization: `Bearer ${accessToken}` } }
   );
-  const latest = builds.data[0];  // самый свежий
-  res.json({ status: latest.status }); // 'queued' | 'building' | 'built' | 'errored'
+  const latest = builds.data[0];
+  res.json({ status: latest.status });
 });
 
 const PORT = process.env.PORT;
