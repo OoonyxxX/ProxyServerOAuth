@@ -28,8 +28,8 @@ const WEEK = 60 * 60 * 24 * 7
 
 app.use(cors({
   origin: [
-    'https://ooonyxxx.github.io',
-    'https://ooonyxxx.github.io.'
+    'https://mapofthenorth.com/',
+    'https://www.mapofthenorth.com/'
   ],
   credentials: true
 }));
@@ -105,7 +105,7 @@ app.get('/auth/callback', async (req, res) => {
   console.log("Session after saving:", req.session);
   req.session.save(err => {
     if (err) console.error(err);
-    res.redirect('https://ooonyxxx.github.io');
+    res.redirect('https://www.mapofthenorth.com/');
   });
   
 });
