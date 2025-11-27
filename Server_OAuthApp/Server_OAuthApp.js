@@ -28,8 +28,8 @@ const WEEK = 60 * 60 * 24 * 7
 
 app.use(cors({
   origin: [
-    'https://mapofthenorth.com/',
-    'https://www.mapofthenorth.com/'
+    'https://mapofthenorth.com',
+    'https://www.mapofthenorth.com'
   ],
   credentials: true
 }));
