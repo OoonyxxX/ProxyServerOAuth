@@ -1,31 +1,66 @@
-const express = require('express');
-const axios = require('axios');
-const dotenv = require('dotenv');
-const cors = require('cors');
-const cookieParser = require('cookie-parser');
-const session = require('express-session');
-dotenv.config();
+import express from "express";
+import axios from "axios";
+import dotenv from "dotenv";
+import cors from "cors";
+import cookieParser from "cookie-parser";
+import fs from "fs";
+import path from "path";
+import session from "express-session";
+import sessionFileStore from "session-file-store";
+import markerRouter from "./markers_routes.js";
+import authRouter from "./auth_routes.js";
+import userRouter from "./users_routes.js";
+
+const FileStore = sessionFileStore(session);
 
 const app = express();
+app.use(express.json());
+
+app.use("/api/markers", markerRouter);
+app.use("/api/auth", authRouter);
+app.use("/api/users", userRouter);
+
+
+
+
+
+
+
+const sessionsDir = path.join(__dirname, 'sessions');
+
+console.log('Sessions directory:', sessionsDir);
+fs.mkdirSync(sessionsDir, { recursive: true });
+
+dotenv.config();
+
 
 const autoDeploy = false;
 const jobQueue  = []; 
-let processing = false;
+let isDeploying = false;
+
+//const sessionsDir = path.resolve(process.cwd(), 'sessions');
+
+const WEEK = 60 * 60 * 24 * 7
 
 app.use(cors({
   origin: [
-    'https://ooonyxxx.github.io',
-    'https://ooonyxxx.github.io.'
+    'https://mapofthenorth.com',
+    'https://www.mapofthenorth.com'
   ],
   credentials: true
 }));
 
-app.use(cookieParser());         
+app.use(cookieParser(process.env.COOKIE_SECRET));
 
 app.set('trust proxy', 1);
 
 app.use(session({
   name: 'sotn.sid',
+    store: new FileStore({
+    path: sessionsDir,
+    ttl: WEEK,
+    retries: 1
+  }),
   secret: process.env.SESSION_SECRET || 'fallback-secret-key',
   resave: false,
   saveUninitialized: false,
@@ -33,16 +68,18 @@ app.use(session({
     httpOnly: true,
     sameSite: 'none',
     secure: true,
-	domain: 'sotn2-auth-proxy.onrender.com'
+	maxAge: WEEK * 1000
   }
 }));
-
-app.use(express.json());        
-
 
 const CLIENT_ID = process.env.GITHUB_CLIENT_ID;
 const CLIENT_SECRET = process.env.GITHUB_CLIENT_SECRET;
 const REDIRECT_URI = 'https://sotn2-auth-proxy.onrender.com/auth/callback';
+
+app.use((err, req, res, next) => {
+  console.error(err);
+  res.status(500).json({ error: "Internal server error" });
+});
 
 app.get('/auth/login', (req, res) => {
   const githubAuthUrl = `https://github.com/login/oauth/authorize?client_id=${CLIENT_ID}&redirect_uri=${REDIRECT_URI}&scope=read:user,public_repo`;
@@ -76,8 +113,6 @@ app.get('/auth/callback', async (req, res) => {
 
   const username = userRes.data.login;
 
-  //req.session.username = username;
-  //res.redirect('https://ooonyxxx.github.io.');
   console.log("Received code:", req.query.code);
   console.log("Access token:", accessToken);
   console.log("GitHub user:", username);
@@ -87,7 +122,7 @@ app.get('/auth/callback', async (req, res) => {
   console.log("Session after saving:", req.session);
   req.session.save(err => {
     if (err) console.error(err);
-    res.redirect('https://ooonyxxx.github.io');
+    res.redirect('https://www.mapofthenorth.com/');
   });
   
 });
@@ -102,22 +137,78 @@ app.get('/auth/me', (req, res) => {
   });
 });
 
-async function processNextJob() {
-  if (jobQueue.length === 0) {
-    processing = false;
-    return;
-  }
-  processing = true;
-  const { username, accessToken, diff } = jobQueue.shift();
-  const { added, updated, deleted } = diff;
-  
-  const owner = username;
-  const repo  = 'ooonyxxx.github.io';
-  const path  = 'markers.json';
-  const branch = 'main';
-  
-  try {
 
+
+
+function enqueueJob(job) {
+  jobQueue.push(job);
+  if (!isDeploying) processNextJob();
+}
+
+async function processNextJob() {
+  if (isDeploying || jobQueue.length === 0) return;
+
+  isDeploying = true;
+  const { added, updated, deleted, owner, repo, path, branch, accessToken, username, res } = jobQueue.shift();
+
+  try {
+    const { newContent, sha } = await prepareCommit(added, updated, deleted, owner, repo, path, branch, accessToken);
+
+    // 2) Запушить изменения
+    await axios.put(
+      `https://api.github.com/repos/${owner}/${repo}/contents/${path}`,
+      {
+        message: `Update markers by ${username}`,
+        content: newContent,
+        sha,
+        branch,
+      },
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+
+    let status;
+    do {
+      await sleep(5000);
+      status = await getPagesDeploymentStatus(accessToken, owner, repo);
+    } while (status !== 'built' && status !== 'errored');
+	    if (status === 'built') {
+      res.json({ ok: true });
+    } else {
+      throw new Error('Deployment errored');
+    }
+  } catch (err) {
+    console.error('Job failed:', err.response?.data || err.message);
+    res.status(500).json({ ok: false, error: err.message });
+  } finally {
+    isDeploying = false;
+    processNextJob();
+  }
+}
+
+
+
+
+
+app.post('/api/update-markers', async (req, res) => {
+  console.log('Update-markers body:', req.body);
+  const { added, updated, deleted } = req.body;
+  const { owner, repo, path, branch, accessToken, username } = extractFromSession(req);
+
+  enqueueJob({ added, updated, deleted, owner, repo, path, branch, accessToken, username, res });
+});
+
+
+function extractFromSession (req) {
+	const accessToken = req.session.accessToken;
+	const owner = 'OoonyxxX';
+	const username = req.session.username;
+	const repo  = 'ooonyxxx.github.io';
+	const path  = 'markers.json';
+	const branch = 'main';
+	return { owner, repo, path, branch, accessToken, username };
+}
+
+async function prepareCommit (added, updated, deleted, owner, repo, path, branch, accessToken) {
 	const get = await axios.get(
 	  `https://api.github.com/repos/${owner}/${repo}/contents/${path}`,
 	  { headers: { Authorization: `Bearer ${accessToken}` },
@@ -128,91 +219,50 @@ async function processNextJob() {
     const content = Buffer.from(get.data.content, 'base64').toString();
     const markers = JSON.parse(content);
 	
-	const newMarkers = markers
-      .filter(m => !deleted.includes(m.id))
-      .map(m => {
-        const u = updated.find(x => x.id === m.id);
-        return u ? u : m;
-      });
-    newMarkers.push(...added);
+	let merged = [...markers, ...added];
 	
-    const newContent = Buffer.from(JSON.stringify(newMarkers, null, 2)).toString('base64');
-    await axios.put(
-      `https://api.github.com/repos/${owner}/${repo}/contents/${path}`,
-      { message: `Update markers by ${username}`,
-        content: newContent,
-        sha,
-        branch
-      },
-      { headers: { Authorization: `Bearer ${accessToken}` } }
-    );
+	merged = merged.map(m => {
+	  const upd = updated.find(u => u.id === m.id);
+	  return upd ? upd : m;
+	});
 	
+	merged = merged.filter(m => !deleted.includes(m.id));
 	
-    if (autoDeploy) {
-	  await axios.post(
-		`https://api.github.com/repos/${owner}/${repo}/pages/builds`,
-		{},
-		{ headers: { Authorization: `Bearer ${accessToken}` } }
-	  );
-    }
-  }
-    catch (err) {
-    console.error('Job processing failed:', err);
-  }
-  finally {
-    processNextJob();
-  }
+	//const newMarkers = markers
+   //   .filter(m => !deleted.includes(m.id))
+   //   .map(m => {
+    //    const u = updated.find(x => x.id === m.id);
+   //     return u ? u : m;
+   //   });
+    //newMarkers.push(...added);
+	
+    const newContent = Buffer.from(JSON.stringify(merged, null, 2)).toString('base64');
+	return { newContent, sha };
 }
-  
-  
-app.post('/api/update-markers', (req, res) => {
-  const token = req.session.accessToken;
-  if (!token) return res.status(401).json({ error: 'Not authorized' });
-  
-  jobQueue.push({
-    username:    req.session.username,
-    accessToken: req.session.accessToken,
-    diff:        req.body
-  });
-  
-  if (!processing) processNextJob();
-  
-  
-  // 5. Ответить клиенту
-  res.json({ ok: true });
-});
 
-app.post('/api/trigger-deploy', async (req, res) => {
-  const token = req.session.accessToken;
-  const owner = req.session.username;
-  if (!token) return res.status(401).json({ error: 'Not authorized' });
-
-  try {
-    await axios.post(
-      `https://api.github.com/repos/${owner}/ooonyxxx.github.io/pages/builds`,
-      {},
-      { headers: { Authorization: `Bearer ${token}` } }
+async function getPagesDeploymentStatus (accessToken, owner, repo) {
+    const builds = await axios.get(
+        `https://api.github.com/repos/${owner}/${repo}/pages/builds`,
+        { headers: { Authorization: `Bearer ${accessToken}` } }
     );
-    res.json({ ok: true, message: 'Deploy started' });
-  }
-  catch (err) {
-    console.error('Deploy trigger failed:', err);
-    res.status(500).json({ error: 'Deploy failed to start' });
-  }
-});
+	const latest = builds.data[0];
+	return latest.status;
+}
 
-// 2) Проверить статус сборки
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 app.get('/api/deploy-status', async (req, res) => {
-  const token = req.session.accessToken;
-  const owner = req.session.username;
+  const accessToken = req.session.accessToken;
+  const owner = 'OoonyxxX';
   const repo  = 'ooonyxxx.github.io';
-  // Получим последний билд
   const builds = await axios.get(
     `https://api.github.com/repos/${owner}/${repo}/pages/builds`,
-    { headers: { Authorization: `Bearer ${token}` } }
+    { headers: { Authorization: `Bearer ${accessToken}` } }
   );
-  const latest = builds.data[0];  // самый свежий
-  res.json({ status: latest.status }); // 'queued' | 'building' | 'built' | 'errored'
+  const latest = builds.data[0];
+  res.json({ status: latest.status });
 });
 
 const PORT = process.env.PORT;
