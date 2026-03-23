@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "OAuth proxy server for SOTN2 map editing",
   "main": "Server_OAuthApp.js",
+  "type": "module",
   "scripts": {
     "start": "node Server_OAuthApp.js"
   },
