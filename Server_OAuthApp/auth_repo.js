@@ -10,7 +10,7 @@ export async function getUID(provider, providerUserId, email) {
     ),
     new_user AS (
       INSERT INTO users (last_login_at)
-      SELECT NULL
+      SELECT now()
       WHERE NOT EXISTS (SELECT 1 FROM existing)
       RETURNING id
     ),
@@ -41,31 +41,16 @@ export async function getUID(provider, providerUserId, email) {
       )
       RETURNING user_id
     )
-
     SELECT
-      (SELECT json_agg(existing) FROM existing) AS existing_rows,
-      (SELECT json_agg(new_user) FROM new_user) AS new_user_rows,
-      (SELECT json_agg(uid) FROM uid) AS uid_rows,
-      (SELECT json_agg(ins_identity) FROM ins_identity) AS ins_identity_rows,
-      (SELECT json_agg(touch_user) FROM touch_user) AS touch_user_rows,
-      (SELECT json_agg(ensure_profile) FROM ensure_profile) AS ensure_profile_rows;
+      i.user_id,
+      COALESCE(ep.display_name, e.display_name) AS display_name,
+      COALESCE(ep.role, e.role, 'user') AS role
+    FROM ins_identity i
+    LEFT JOIN ensure_profile ep ON ep.user_id = i.user_id
+    LEFT JOIN existing e ON e.user_id = i.user_id;
   `;
 
-  /*  
-    SELECT
-      u.id AS user_id,
-      p.display_name,
-      p.role
-    FROM users u
-    JOIN user_profiles p ON p.user_id = u.id
-    WHERE u.id = (SELECT user_id FROM ins_identity);
-  */
-
-
-  //const { rows } = await query(sql, [provider, providerUserId, email]);
   const { rows } = await query(sql, [provider, providerUserId, email]);
-  console.log("[getUID] rows =", rows);
-  return rows[0];
   // TODO(P2): для pre-prod добавить более явную диагностическую ошибку, если rows[0] отсутствует.
   return rows[0];
 }
