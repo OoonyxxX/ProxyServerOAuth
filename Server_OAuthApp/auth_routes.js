@@ -92,12 +92,12 @@ router.get("/google/callback", async (req, res, next) => {
     if (!googleSub) return res.status(400).json({ error: "No sub in userinfo" });
 
     // 4) upsert в БД и получить internal user_id
-    const rows = await Auth.getUID("Google", googleSub, profile.email || null);
+    const user = await Auth.getUID("Google", googleSub, profile.email || null);
 
     // 5) сохранить user_id в session
-    req.session.user_id = rows.user_id;
-    req.session.display_name = rows.display_name;
-    req.session.role = rows.role;
+    req.session.user_id = user.user_id;
+    req.session.display_name = user.display_name;
+    req.session.role = user.role;
 
     req.session.save((err) => {
       if (err) console.error(err);

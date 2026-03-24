@@ -41,6 +41,17 @@ export async function getUID(provider, providerUserId, email) {
       )
       RETURNING user_id
     )
+
+    SELECT
+      (SELECT json_agg(existing) FROM existing) AS existing_rows,
+      (SELECT json_agg(new_user) FROM new_user) AS new_user_rows,
+      (SELECT json_agg(uid) FROM uid) AS uid_rows,
+      (SELECT json_agg(ins_identity) FROM ins_identity) AS ins_identity_rows,
+      (SELECT json_agg(touch_user) FROM touch_user) AS touch_user_rows,
+      (SELECT json_agg(ensure_profile) FROM ensure_profile) AS ensure_profile_rows;
+  `;
+
+  /*  
     SELECT
       u.id AS user_id,
       p.display_name,
@@ -48,9 +59,13 @@ export async function getUID(provider, providerUserId, email) {
     FROM users u
     JOIN user_profiles p ON p.user_id = u.id
     WHERE u.id = (SELECT user_id FROM ins_identity);
-  `;
+  */
 
+
+  //const { rows } = await query(sql, [provider, providerUserId, email]);
   const { rows } = await query(sql, [provider, providerUserId, email]);
+  console.log("[getUID] rows =", rows);
+  return rows[0];
   // TODO(P2): для pre-prod добавить более явную диагностическую ошибку, если rows[0] отсутствует.
   return rows[0];
 }
