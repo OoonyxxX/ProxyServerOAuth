@@ -9,8 +9,8 @@ export async function getUID(provider, providerUserId, email) {
       WHERE provider = $1 AND provider_user_id = $2
     ),
     new_user AS (
-      INSERT INTO users (id)
-      SELECT DEFAULT
+      INSERT INTO users (last_login_at)
+      SELECT NULL
       WHERE NOT EXISTS (SELECT 1 FROM existing)
       RETURNING id
     ),
