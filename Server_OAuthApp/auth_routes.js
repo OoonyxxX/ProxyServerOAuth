@@ -101,7 +101,7 @@ router.get("/google/callback", async (req, res, next) => {
 
     req.session.save((err) => {
       if (err) console.error(err);
-      res.redirect("https://www.mapofthenorth.com/");
+      res.redirect("https://mapofthenorth.com");
     });
   } catch (e) {
     next(e);
