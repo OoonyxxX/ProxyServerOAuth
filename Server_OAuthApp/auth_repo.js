@@ -4,9 +4,10 @@ export async function getUID(provider, providerUserId, email) {
   // TODO(P2): источник истины схемы сейчас ReadMe.txt; перед продом синхронизировать db/schema/*.sql с этой схемой.
   const sql = `
     WITH existing AS (
-      SELECT user_id
-      FROM user_identities
-      WHERE provider = $1 AND provider_user_id = $2
+      SELECT ui.user_id, up.display_name, up.role
+      FROM user_identities ui
+      LEFT JOIN user_profiles up ON up.user_id = ui.user_id
+      WHERE ui.provider = $1 AND ui.provider_user_id = $2
     ),
     new_user AS (
       INSERT INTO users (last_login_at)
@@ -21,25 +22,28 @@ export async function getUID(provider, providerUserId, email) {
     ),
     ins_identity AS (
       INSERT INTO user_identities (user_id, provider, provider_user_id, email)
-      SELECT id, $1, $2, $3 FROM uid
+      SELECT id, $1, $2, $3 
+      FROM uid
       ON CONFLICT (provider, provider_user_id)
       DO UPDATE SET email = COALESCE(EXCLUDED.email, user_identities.email)
       RETURNING user_id
     ),
-    touch_user AS (
-      UPDATE users u
+    touch_existing_user AS (
+      UPDATE users
       SET last_login_at = now()
-      WHERE u.id = (SELECT user_id FROM ins_identity)
-      RETURNING u.id
+      WHERE id IN (SELECT user_id FROM existing)
+      RETURNING id
     ),
     ensure_profile AS (
       INSERT INTO user_profiles (user_id, display_name, role)
-      SELECT (SELECT user_id FROM ins_identity), NULL, 'user'
+      SELECT i.user_id, NULL, 'user'
+      FROM ins_identity i
       WHERE NOT EXISTS (
-        SELECT 1 FROM user_profiles p
-        WHERE p.user_id = (SELECT user_id FROM ins_identity)
+        SELECT 1
+        FROM existing e
+        WHERE e.user_id = i.user_id
       )
-      RETURNING user_id
+      RETURNING user_id, display_name, role
     )
     SELECT
       i.user_id,
