@@ -36,10 +36,11 @@ function isValidMarker(marker) {
   if (!marker || typeof marker !== "object" || Array.isArray(marker)) return false;
   if (!isNonEmptyString(marker.id, 128)) return false;
   if (!isNonEmptyString(marker.name, 128)) return false;
+  if (!isNonEmptyString(marker.description, 128)) return false;
   if (!isNonEmptyString(marker.icon_id, 128)) return false;
   if (!isNonEmptyString(marker.reg_id, 128)) return false;
-  if (!isFiniteNumber(marker.lat) || marker.lat < -90 || marker.lat > 90) return false;
-  if (!isFiniteNumber(marker.lng) || marker.lng < -180 || marker.lng > 180) return false;
+  if (!isFiniteNumber(marker.lat) || marker.lat < 0 || marker.lat > 256) return false;
+  if (!isFiniteNumber(marker.lng) || marker.lng < 0 || marker.lng > 256) return false;
 
   if (marker.under_ground != null && typeof marker.under_ground !== "boolean") return false;
   if (marker.height != null && (!isFiniteNumber(marker.height) || marker.height < -10000 || marker.height > 10000)) return false;
