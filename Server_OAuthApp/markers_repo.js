@@ -16,14 +16,17 @@ function uniqueNonEmptyStrings(values) {
   return result;
 }
 
-export async function getAllMarkers() {
+export async function getAllMarkers(userId) {
   const sql = `
-    select id, name, description, icon_id, lat, lng, reg_id, under_ground, height,
-           color_r, color_g, color_b, created_at, updated_at
-    from markers
-    order by id;
+    SELECT 
+      m.*,
+      c.marker_id IS NOT NULL AS is_collected
+    FROM markers m
+    LEFT JOIN user_collected_markers c 
+      ON m.id = c.marker_id AND c.user_id = $1
+    ORDER BY m.id;
   `;
-  const { rows } = await query(sql, []);
+  const { rows } = await query(sql, [userId]);
   return rows;
 }
 
@@ -214,16 +217,27 @@ export async function getAllCollectedMarkers(userId) {
 
 export async function setCollectedMarker(markerId, userId) {
   const sql = `
-    INSERT INTO user_collected_markers (marker_id, user_id)
-    VALUES ($1, $2)
-    ON CONFLICT DO NOTHING
-    RETURNING marker_id;
+    WITH deleted AS (
+      DELETE FROM user_collected_markers
+      WHERE marker_id = $1 AND user_id = $2
+      RETURNING marker_id
+    ),
+    inserted AS (
+      INSERT INTO user_collected_markers (marker_id, user_id)
+      SELECT $1, $2
+      WHERE NOT EXISTS (SELECT 1 FROM deleted)
+      RETURNING marker_id
+    )
+    SELECT 
+      (SELECT COUNT(*) FROM inserted) AS inserted_count,
+      (SELECT COUNT(*) FROM deleted) AS deleted_count;
   `;
+
   const { rows } = await query(sql, [markerId, userId]);
-  return { count: rows.length };
+  return rows[0];
 }
 
-export async function setCollectedMarkersBatch(markerIds, userId) {
+export async function addCollectedMarkersBatch(markerIds, userId) {
   if (!markerIds.length) return { rows: [], count: 0 };
 
   const uniqueIds = uniqueNonEmptyStrings(markerIds);

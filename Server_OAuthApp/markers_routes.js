@@ -67,7 +67,8 @@ function parseTokenArray(rawTokens) {
 // Получение всех маркеров.
 router.get("/all", async (req, res, next) => {
   try {
-    const rows = await Markers.getAllMarkers();
+    const userId = req.session.user_id ?? null;
+    const rows = await Markers.getAllMarkers(userId);
     res.json(rows);
   } catch (err) {
     next(err);
@@ -131,7 +132,9 @@ router.get("/filter", async (req, res, next) => {
 // Апсерт одного измененного или добавленного маркера.
 router.post("/single", async (req, res, next) => {
   try {
-    if (!requireRole(req, res, EDIT_ROLES)) return;
+    if (!requireRole(req, res, EDIT_ROLES)) {
+      return res.status(403).json({ error: "Forbidden" });
+    };;
 
     const marker = req.body;
     if (!isValidMarker(marker)) {
@@ -150,7 +153,9 @@ router.post("/single", async (req, res, next) => {
 // Апсерт массива измененных или добавленных маркеров. Батч.
 router.post("/array", async (req, res, next) => {
   try {
-    if (!requireRole(req, res, EDIT_ROLES)) return;
+    if (!requireRole(req, res, EDIT_ROLES)) {
+      return res.status(403).json({ error: "Forbidden" });
+    };
 
     const markers = req.body;
     if (!Array.isArray(markers)) {
@@ -185,8 +190,8 @@ router.post("/collected/single", async (req, res, next) => {
       return res.status(400).json({ error: "markerId is required" });
     }
 
-    const rows = await Markers.setCollectedMarker(markerId, userId);
-    res.json(rows);
+    const row = await Markers.setCollectedMarker(markerId, userId);
+    res.json(row);
   } catch (err) {
     next(err);
   }
@@ -213,7 +218,7 @@ router.post("/collected/array", async (req, res, next) => {
       return res.status(400).json({ error: "markerIds must contain non-empty strings" });
     }
 
-    const rows = await Markers.setCollectedMarkersBatch(markerIds, userId);
+    const rows = await Markers.addCollectedMarkersBatch(markerIds, userId);
     res.json(rows);
   } catch (err) {
     next(err);
@@ -224,7 +229,9 @@ router.post("/collected/array", async (req, res, next) => {
 // Удаляет один маркер.
 router.delete("/single", async (req, res, next) => {
   try {
-    if (!requireRole(req, res, DELETE_ROLES)) return;
+    if (!requireRole(req, res, DELETE_ROLES)) {
+      return res.status(403).json({ error: "Forbidden" });
+    };;
 
     const { markerId } = req.body;
     if (!isNonEmptyString(markerId, 128)) {
@@ -243,7 +250,9 @@ router.delete("/single", async (req, res, next) => {
 // Удаляет массив маркеров. Батч.
 router.delete("/array", async (req, res, next) => {
   try {
-    if (!requireRole(req, res, DELETE_ROLES)) return;
+    if (!requireRole(req, res, DELETE_ROLES)) {
+      return res.status(403).json({ error: "Forbidden" });
+    };;
 
     const { markerIds } = req.body;
     if (!Array.isArray(markerIds)) {
