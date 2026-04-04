@@ -1,20 +1,16 @@
 ﻿import "dotenv/config";
 import express from "express";
 import cors from "cors";
-import cookieParser from "cookie-parser";
-import fs from "fs";
-import path from "path";
 import session from "express-session";
-import sessionFileStore from "session-file-store";
+import connectPgSimple from "connect-pg-simple";
+
 import markerRouter from "./markers_routes.js";
 import authRouter from "./auth_routes.js";
 import userRouter from "./users_routes.js";
+import { pool } from "./db.js";
 
-const FileStore = sessionFileStore(session);
 const app = express();
-
-const sessionsDir = path.resolve(process.cwd(), "data", "sessions");
-fs.mkdirSync(sessionsDir, { recursive: true });
+const PgStore = connectPgSimple(session);
 
 const WEEK = 60 * 60 * 24 * 7;
 
@@ -25,7 +21,6 @@ app.use(cors({
   credentials: true,
 }));
 
-app.use(cookieParser(process.env.COOKIE_SECRET));
 app.set("trust proxy", 1);
 
 if (!process.env.SESSION_SECRET) {
@@ -35,10 +30,11 @@ if (!process.env.SESSION_SECRET) {
 
 app.use(session({
   name: "sotn.sid",
-  store: new FileStore({
-    path: sessionsDir,
-    ttl: WEEK,
-    retries: 1,
+  store: new PgStore({
+    pool,
+    tableName: "session",
+    createTableIfMissing: false,
+    pruneSessionInterval: 60 * 15, // раз в 15 минут чистить истекшие
   }),
   secret: process.env.SESSION_SECRET,
   resave: false,
