@@ -28,9 +28,7 @@ router.get('/me', (req, res) => {
 
 // GET /api/auth/google/login
 // Переадресация на Google OAuth.
-router.get("/google/login", (req, res) => {
-  // TODO(P2): добавить защиту от session fixation (regenerate session перед OAuth-редиректом).
-  // state — защита от CSRF.
+router.get("/google/login", (req, res, next) => {
   const state = crypto.randomBytes(16).toString("hex");
   req.session.oauthState = state;
 
@@ -40,12 +38,14 @@ router.get("/google/login", (req, res) => {
     response_type: "code",
     scope: "openid email profile",
     state,
-    // access_type: "offline",
-    // prompt: "consent",
   });
 
   const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
-  return res.redirect(googleAuthUrl);
+
+  req.session.save((err) => {
+    if (err) return next(err);
+    return res.redirect(googleAuthUrl);
+  });
 });
 
 // GET /api/auth/google/callback
@@ -95,14 +95,22 @@ router.get("/google/callback", async (req, res, next) => {
     const user = await Auth.getUID("Google", googleSub, profile.email || null);
 
     // 5) сохранить user_id в session
-    req.session.user_id = user.user_id;
-    req.session.display_name = user.display_name;
-    req.session.role = user.role;
+    req.session.regenerate((err) => {
+      if (err) return next(err);
 
-    req.session.save((err) => {
-      if (err) console.error(err);
-      res.redirect("https://mapofthenorth.com");
+      // 3. Записываем уже новые auth-данные в новую сессию
+      req.session.user_id = user.id;
+      req.session.role = user.role;
+      req.session.display_name = user.display_name;
+
+      // 4. Явно сохраняем, потом отвечаем
+      req.session.save((err) => {
+        if (err) return next(err);
+
+        return res.redirect("https://mapofthenorth.com");
+      });
     });
+
   } catch (e) {
     next(e);
   }
