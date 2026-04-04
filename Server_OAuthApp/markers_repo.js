@@ -60,7 +60,7 @@ export async function getMarkersByFilter(userIdToken, regionTokens, iconTokens, 
       FROM markers m
       LEFT JOIN user_markers um ON um.id = m.id
     )
-    SELECT m.id
+    SELECT COALESCE(array_agg(m.id ORDER BY m.id), '{}') AS ids
     FROM markers_with_flag m
     CROSS JOIN user_token u
     CROSS JOIN reg_sets r
@@ -72,11 +72,10 @@ export async function getMarkersByFilter(userIdToken, regionTokens, iconTokens, 
       AND (coalesce(cardinality(i.icon_in), 0) = 0 OR m.icon_id = ANY(i.icon_in))
       AND (coalesce(cardinality(i.icon_out), 0) = 0 OR m.icon_id <> ALL(i.icon_out))
       AND ($4::boolean IS NULL OR m.under_ground = $4::boolean)
-    ORDER BY m.id;
   `;
 
   const { rows } = await query(sql, [userIdToken, regionTokens, iconTokens, underGround]);
-  return rows;
+  return rows[0].ids;
 }
 
 export async function upsertMarker(m) {
