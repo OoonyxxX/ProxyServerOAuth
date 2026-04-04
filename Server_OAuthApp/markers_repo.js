@@ -35,8 +35,8 @@ export async function getMarkersByFilter(userIdToken, regionTokens, iconTokens, 
     WITH
     user_token AS (
       SELECT
-        CASE WHEN $1 ~ '^[+-][0-9]+$' THEN left($1, 1) END AS tok,
-        CASE WHEN $1 ~ '^[+-][0-9]+$' THEN substring($1 from 2)::bigint END AS uid
+        CASE WHEN $1::text ~ '^[+-][0-9]+$' THEN left($1::text, 1) END AS tok,
+        CASE WHEN $1::text ~ '^[+-][0-9]+$' THEN substring($1::text from 2)::bigint END AS uid
     ),
     user_markers AS (
       SELECT ucm.marker_id AS id
@@ -71,7 +71,7 @@ export async function getMarkersByFilter(userIdToken, regionTokens, iconTokens, 
       AND (coalesce(cardinality(r.reg_out), 0) = 0 OR m.reg_id <> ALL(r.reg_out))
       AND (coalesce(cardinality(i.icon_in), 0) = 0 OR m.icon_id = ANY(i.icon_in))
       AND (coalesce(cardinality(i.icon_out), 0) = 0 OR m.icon_id <> ALL(i.icon_out))
-      AND ($4 IS NULL OR m.under_ground = $4)
+      AND ($4::boolean IS NULL OR m.under_ground = $4::boolean)
     ORDER BY m.id;
   `;
 
