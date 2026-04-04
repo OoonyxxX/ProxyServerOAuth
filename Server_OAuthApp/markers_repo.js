@@ -32,50 +32,46 @@ export async function getAllMarkers(userId) {
 
 export async function getMarkersByFilter(userIdToken, regionTokens, iconTokens, underGround) {
   const sql = `
-WITH
-user_token AS (
-  SELECT
-    CASE WHEN $1::text ~ '^[+-][0-9]+$' THEN left($1::text, 1) END AS tok,
-    CASE WHEN $1::text ~ '^[+-][0-9]+$' THEN substring($1::text from 2)::bigint END AS uid
-),
-user_markers AS (
-  SELECT ucm.marker_id AS id
-  FROM user_collected_markers ucm
-  JOIN user_token u ON u.uid IS NOT NULL AND ucm.user_id = u.uid
-),
-reg_sets AS (
-  SELECT
-    array_agg(substr(tok, 2)) FILTER (WHERE tok LIKE '+%') AS reg_in,
-    array_agg(substr(tok, 2)) FILTER (WHERE tok LIKE '-%') AS reg_out
-  FROM unnest(coalesce($2::text[], ARRAY[]::text[])) AS t(tok)
-),
-icon_sets AS (
-  SELECT
-    array_agg(substr(tok, 2)) FILTER (WHERE tok LIKE '+%') AS icon_in,
-    array_agg(substr(tok, 2)) FILTER (WHERE tok LIKE '-%') AS icon_out
-  FROM unnest(coalesce($3::text[], ARRAY[]::text[])) AS t(tok)
-),
-markers_with_flag AS (
-  SELECT m.*, (um.id IS NOT NULL) AS is_collected
-  FROM markers m
-  LEFT JOIN user_markers um ON um.id = m.id
-)
-SELECT
-  m.id,
-  m.icon_id,
-  i.icon_in,
-  i.icon_out,
-  (m.icon_id = ANY(i.icon_in)) AS icon_in_match,
-  COALESCE(cardinality(i.icon_in), 0) AS icon_in_len,
-  m.reg_id,
-  m.under_ground,
-  ($4::boolean IS NULL OR m.under_ground = $4::boolean) AS underground_match,
-  m.is_collected
-FROM markers_with_flag m
-CROSS JOIN user_token u
-CROSS JOIN reg_sets r
-CROSS JOIN icon_sets i
-ORDER BY m.id;
+    WITH
+    user_token AS (
+      SELECT
+        CASE WHEN $1::text ~ '^[+-][0-9]+$' THEN left($1::text, 1) END AS tok,
+        CASE WHEN $1::text ~ '^[+-][0-9]+$' THEN substring($1::text from 2)::bigint END AS uid
+    ),
+    user_markers AS (
+      SELECT ucm.marker_id AS id
+      FROM user_collected_markers ucm
+      JOIN user_token u ON u.uid IS NOT NULL AND ucm.user_id = u.uid
+    ),
+    reg_sets AS (
+      SELECT
+        array_agg(substring(tok from 2)) FILTER (WHERE left(tok, 1) = '+') AS reg_in,
+        array_agg(substring(tok from 2)) FILTER (WHERE left(tok, 1) = '-') AS reg_out
+      FROM unnest(coalesce($2::text[], '{}'::text[])) AS tok
+    ),
+    icon_sets AS (
+      SELECT
+        array_agg(substring(tok from 2)) FILTER (WHERE left(tok, 1) = '+') AS icon_in,
+        array_agg(substring(tok from 2)) FILTER (WHERE left(tok, 1) = '-') AS icon_out
+      FROM unnest(coalesce($3::text[], '{}'::text[])) AS tok
+    ),
+    markers_with_flag AS (
+      SELECT m.*, (um.id IS NOT NULL) AS is_collected
+      FROM markers m
+      LEFT JOIN user_markers um ON um.id = m.id
+    )
+    SELECT COALESCE(array_agg(m.id ORDER BY m.id), '{}') AS ids
+    FROM markers_with_flag m
+    CROSS JOIN user_token u
+    CROSS JOIN reg_sets r
+    CROSS JOIN icon_sets i
+    WHERE
+      (u.uid IS NULL OR (u.tok = '+' AND m.is_collected) OR (u.tok = '-' AND NOT m.is_collected))
+      AND (coalesce(cardinality(r.reg_in), 0) = 0 OR m.reg_id = ANY(r.reg_in))
+      AND (coalesce(cardinality(r.reg_out), 0) = 0 OR m.reg_id <> ALL(r.reg_out))
+      AND (coalesce(cardinality(i.icon_in), 0) = 0 OR m.icon_id = ANY(i.icon_in))
+      AND (coalesce(cardinality(i.icon_out), 0) = 0 OR m.icon_id <> ALL(i.icon_out))
+      AND ($4::boolean IS NULL OR m.under_ground = $4::boolean)
   `;
 
   const { rows } = await query(sql, [userIdToken, regionTokens, iconTokens, underGround]);

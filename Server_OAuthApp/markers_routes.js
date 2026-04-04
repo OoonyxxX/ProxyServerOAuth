@@ -133,8 +133,11 @@ router.get("/filter", async (req, res, next) => {
       return res.status(400).json({ error: "At least one filter parameter is required" });
     }
 
+    const params = {userIdToken, regionTokens, iconTokens, underGround}
+    console.log(params)
+
     const rows = await Markers.getMarkersByFilter(userIdToken, regionTokens, iconTokens, underGround);
-    console.log(rows)
+    
     res.json(rows);
   } catch (err) {
     next(err);
