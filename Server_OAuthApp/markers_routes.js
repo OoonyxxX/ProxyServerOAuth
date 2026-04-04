@@ -55,12 +55,21 @@ function isValidMarker(marker) {
 }
 
 function parseTokenArray(rawTokens) {
-  if (rawTokens == null) return null;
-  const tokens = Array.isArray(rawTokens) ? rawTokens : [rawTokens];
-  if (tokens.some((t) => typeof t !== "string" || t.length < 2 || !["+", "-"].includes(t[0]))) {
-    return null;
+  if (rawTokens == undefined) {
+    return { ok: true, value: null };
   }
-  return tokens;
+  const tokens = Array.isArray(rawTokens) ? rawTokens : [rawTokens];
+  if (
+    tokens.some(
+      (t) =>
+        typeof t !== "string" ||
+        t.length < 2 ||
+        !["+", "-"].includes(t[0])
+    )
+  ) {
+    return { ok: false, value: null };
+  }
+  return { ok: true, value: tokens };
 }
 
 
@@ -94,7 +103,7 @@ router.get("/collected", async (req, res, next) => {
 router.get("/filter", async (req, res, next) => {
   try {
     const { userIdToken } = req.query;
-    if (userIdToken != null) {
+    if (userIdToken != undefined) {
       if (typeof userIdToken !== "string" || !/^[+-][0-9]+$/.test(userIdToken)) {
         return res.status(400).json({ error: "userIdToken must match +<id> or -<id>" });
       }
@@ -102,27 +111,29 @@ router.get("/filter", async (req, res, next) => {
 
     const rawUnderGround = req.query.underGround;
     let underGround = null;
-    if (rawUnderGround != null) {
-      if (rawUnderGround === "true") underGround = true;
-      else if (rawUnderGround === "false") underGround = false;
-      else return res.status(400).json({ error: "underGround must be true or false" });
-    }
+    if (rawUnderGround === undefined) underGround = null;
+    else if (rawUnderGround === "true") underGround = true;
+    else if (rawUnderGround === "false") underGround = false;
+    else return res.status(400).json({ error: "underGround must be true or false" });
 
-    const regionTokens = parseTokenArray(req.query.regionTokens);
-    if (req.query.regionTokens != null && regionTokens == null) {
+    const parsedRegion = parseTokenArray(req.query.regionTokens);
+    if (!parsedRegion.ok) {
       return res.status(400).json({ error: "regionTokens must contain tokens like +<reg_id> or -<reg_id>" });
     }
+    const regionTokens = parsedRegion.value;
 
-    const iconTokens = parseTokenArray(req.query.iconTokens);
-    if (req.query.iconTokens != null && iconTokens == null) {
+
+    const parsedIcon = parseTokenArray(req.query.iconTokens);
+    if (!parsedIcon.ok) {
       return res.status(400).json({ error: "iconTokens must contain tokens like +<icon_id> or -<icon_id>" });
     }
+    const iconTokens = parsedIcon.value;
 
     if (userIdToken == null && regionTokens == null && iconTokens == null && underGround == null) {
       return res.status(400).json({ error: "At least one filter parameter is required" });
     }
 
-    const rows = await Markers.getMarkersByFilter(userIdToken ?? null, regionTokens, iconTokens, underGround);
+    const rows = await Markers.getMarkersByFilter(userIdToken, regionTokens, iconTokens, underGround);
     res.json(rows);
   } catch (err) {
     next(err);
