@@ -45,15 +45,15 @@ user_markers AS (
 ),
 reg_sets AS (
   SELECT
-    array_agg(substring(tok from 2)) FILTER (WHERE left(tok, 1) = '+') AS reg_in,
-    array_agg(substring(tok from 2)) FILTER (WHERE left(tok, 1) = '-') AS reg_out
-  FROM unnest(coalesce($2::text[], '{}'::text[])) AS t(tok)
+    array_agg(substr(tok, 2)) FILTER (WHERE tok LIKE '+%') AS reg_in,
+    array_agg(substr(tok, 2)) FILTER (WHERE tok LIKE '-%') AS reg_out
+  FROM unnest(coalesce($2::text[], ARRAY[]::text[])) AS t(tok)
 ),
 icon_sets AS (
   SELECT
-    array_agg(substring(tok from 2)) FILTER (WHERE left(tok, 1) = '+') AS icon_in,
-    array_agg(substring(tok from 2)) FILTER (WHERE left(tok, 1) = '-') AS icon_out
-  FROM unnest(coalesce($3::text[], '{}'::text[])) AS t(tok)
+    array_agg(substr(tok, 2)) FILTER (WHERE tok LIKE '+%') AS icon_in,
+    array_agg(substr(tok, 2)) FILTER (WHERE tok LIKE '-%') AS icon_out
+  FROM unnest(coalesce($3::text[], ARRAY[]::text[])) AS t(tok)
 ),
 markers_with_flag AS (
   SELECT m.*, (um.id IS NOT NULL) AS is_collected
@@ -65,10 +65,11 @@ SELECT
   m.icon_id,
   i.icon_in,
   i.icon_out,
-  m.icon_id = ANY(i.icon_in) AS icon_in_match,
+  (m.icon_id = ANY(i.icon_in)) AS icon_in_match,
   COALESCE(cardinality(i.icon_in), 0) AS icon_in_len,
   m.reg_id,
   m.under_ground,
+  ($4::boolean IS NULL OR m.under_ground = $4::boolean) AS underground_match,
   m.is_collected
 FROM markers_with_flag m
 CROSS JOIN user_token u
