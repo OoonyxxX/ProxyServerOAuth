@@ -134,6 +134,7 @@ router.get("/filter", async (req, res, next) => {
     }
 
     const rows = await Markers.getMarkersByFilter(userIdToken, regionTokens, iconTokens, underGround);
+    console.log(rows)
     res.json(rows);
   } catch (err) {
     next(err);
