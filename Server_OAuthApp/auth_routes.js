@@ -93,23 +93,18 @@ router.get("/google/callback", async (req, res, next) => {
 
     // 4) upsert в БД и получить internal user_id
     const user = await Auth.getUID("Google", googleSub, profile.email || null);
-    console.log("Before regenerate:", req.session);
-
     // 5) сохранить user_id в session
     req.session.regenerate((err) => {
       if (err) return next(err);
 
       // 3. Записываем уже новые auth-данные в новую сессию
-      req.session.user_id = user.id;
+      req.session.user_id = user.user_id;
       req.session.role = user.role;
       req.session.display_name = user.display_name;
-      console.log("Saving session for user:", user);
 
       // 4. Явно сохраняем, потом отвечаем
       req.session.save((err) => {
         if (err) return next(err);
-        console.log("Session saved:", req.session);
-
         return res.redirect("https://mapofthenorth.com");
       });
     });
