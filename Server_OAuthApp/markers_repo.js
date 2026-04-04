@@ -47,13 +47,13 @@ export async function getMarkersByFilter(userIdToken, regionTokens, iconTokens, 
       SELECT
         array_agg(substring(tok from 2)) FILTER (WHERE left(tok, 1) = '+') AS reg_in,
         array_agg(substring(tok from 2)) FILTER (WHERE left(tok, 1) = '-') AS reg_out
-      FROM unnest(coalesce($2::text[], '{}'::text[])) AS tok
+      FROM unnest(coalesce($2::text[], '{}'::text[])) AS t(tok)
     ),
     icon_sets AS (
       SELECT
         array_agg(substring(tok from 2)) FILTER (WHERE left(tok, 1) = '+') AS icon_in,
         array_agg(substring(tok from 2)) FILTER (WHERE left(tok, 1) = '-') AS icon_out
-      FROM unnest(coalesce($3::text[], '{}'::text[])) AS tok
+      FROM unnest(coalesce($3::text[], '{}'::text[])) AS t(tok)
     ),
     markers_with_flag AS (
       SELECT m.*, (um.id IS NOT NULL) AS is_collected
