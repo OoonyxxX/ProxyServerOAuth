@@ -8,9 +8,15 @@ const ROLE_POLICY = {
   moderator: ["user", "editor"],
   admin: ["user", "editor", "moderator", "admin"],
 };
+const VALID_OPTIONS = {
+  METVisible: "boolean",
+  customCursor: "boolean",
+  instantFilter: "boolean",
+  theme: ["White", "Dark", "Northern Lights", "Red Death"],
+};
 
 function isValidDisplayName(value) {
-  return typeof value === "string" && value.trim().length >= 1 && value.trim().length <= 64;
+  return typeof value === "string" && value.trim().length >= 1 && value.trim().length <= 32;
 }
 
 function parsePositiveInt(value) {
@@ -25,7 +31,7 @@ router.patch("/me/name", async (req, res, next) => {
 
     const { newName } = req.body;
     if (!isValidDisplayName(newName)) {
-      return res.status(400).json({ error: "newName must be a non-empty string up to 64 chars" });
+      return res.status(400).json({ error: "newName must be a non-empty string up to 32 chars" });
     }
 
     const row = await Users.updateUserName(userId, newName.trim());
@@ -69,6 +75,74 @@ router.patch("/user/role", async (req, res, next) => {
   } catch (err) {
     next(err);
   }
+});
+
+router.patch("/user/options", async (req, res, next) => {
+  try {
+    const userId = req.session.user_id;
+    if (!userId) return res.status(401).json({ error: "Unauthorized" });
+
+    const incomingOptions = req.body;
+
+    const cleanOptions = {};
+    for (const [key, value] of Object.entries(incomingOptions)) {
+      const rule = VALID_OPTIONS[key];
+
+      if (!rule) {
+        return res.status(400).json({
+          error: `Unknown option: ${key}`,
+        });
+      }
+
+      if (Array.isArray(rule)) {
+        if (!rule.includes(value)) {
+          return res.status(400).json({
+            error: `Invalid value for ${key}`,
+          });
+        }
+
+        cleanOptions[key] = value;
+        continue;
+      }
+
+      if (typeof value !== rule) {
+        return res.status(400).json({
+          error: `Invalid type for ${key}`,
+        });
+      }
+
+      cleanOptions[key] = value;
+    }
+
+    const row = await Users.updateUserOptions(userId, JSON.stringify(cleanOptions));
+
+    res.json(row);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get("/user/options", async (req, res, next) => {
+  const userId = req.session.user_id;
+  if (!userId) return res.status(401).json({ error: "Unauthorized" });
+
+  const row = await Users.getUserOptions(userId);
+
+  const defaultOptions = {
+    METVisible: true,
+    customCursor: true,
+    instantFilter: true,
+    theme: "Northern Lights"
+  };
+
+  const dbOptions = row?.options ?? {};
+
+  res.json({
+    options: {
+      ...defaultOptions,
+      ...dbOptions,
+    },
+  });
 });
 
 export default router;

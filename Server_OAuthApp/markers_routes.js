@@ -72,7 +72,6 @@ function parseTokenArray(rawTokens) {
   return { ok: true, value: tokens };
 }
 
-
 // GET /api/markers/all
 // Получение всех маркеров.
 router.get("/all", async (req, res, next) => {
@@ -134,7 +133,6 @@ router.get("/filter", async (req, res, next) => {
     }
 
     const params = {userIdToken, regionTokens, iconTokens, underGround}
-    console.log(params)
 
     const rows = await Markers.getMarkersByFilter(userIdToken, regionTokens, iconTokens, underGround);
     

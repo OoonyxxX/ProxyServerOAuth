@@ -17,11 +17,25 @@ router.get('/me', (req, res) => {
   if (!req.session.user_id) {
     return res.status(401).json({ authorized: false });
   }
-  res.json({
-    authorized: true,
-    user_id: req.session.user_id,
-    display_name: req.session.display_name,
-    role: req.session.role,
+
+  const new_user_data = getAuthData(req.session.user_id)
+  const new_role = new_user_data.role
+  const new_display_name = new_user_data.display_name
+
+  req.session.role = new_role;
+  req.session.display_name = new_display_name;
+
+  // 4. Явно сохраняем, потом отвечаем
+  req.session.save((err) => {
+    if (err) return next(err);
+    return res.json({
+      authorized: true,
+      user_id: req.session.user_id,
+      display_name: new_role,
+      role: new_display_name,
+      provider: req.session.provider,
+      email: req.session.email
+    });;
   });
 });
 
@@ -101,6 +115,8 @@ router.get("/google/callback", async (req, res, next) => {
       req.session.user_id = user.user_id;
       req.session.role = user.role;
       req.session.display_name = user.display_name;
+      req.session.provider = user.provider;
+      req.session.email = user.email;
 
       // 4. Явно сохраняем, потом отвечаем
       req.session.save((err) => {

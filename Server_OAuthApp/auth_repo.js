@@ -26,7 +26,7 @@ export async function getUID(provider, providerUserId, email) {
       FROM uid
       ON CONFLICT (provider, provider_user_id)
       DO UPDATE SET email = COALESCE(EXCLUDED.email, user_identities.email)
-      RETURNING user_id
+      RETURNING user_id, provider, email
     ),
     touch_existing_user AS (
       UPDATE users
@@ -48,7 +48,9 @@ export async function getUID(provider, providerUserId, email) {
     SELECT
       i.user_id,
       COALESCE(ep.display_name, e.display_name) AS display_name,
-      COALESCE(ep.role, e.role, 'user') AS role
+      COALESCE(ep.role, e.role, 'user') AS role,
+      i.provider AS provider,
+      i.email AS email
     FROM ins_identity i
     LEFT JOIN ensure_profile ep ON ep.user_id = i.user_id
     LEFT JOIN existing e ON e.user_id = i.user_id;
@@ -56,5 +58,17 @@ export async function getUID(provider, providerUserId, email) {
 
   const { rows } = await query(sql, [provider, providerUserId, email]);
   // TODO(P2): для pre-prod добавить более явную диагностическую ошибку, если rows[0] отсутствует.
+  return rows[0];
+}
+
+
+export async function getAuthData(UserId) {
+  // TODO(P2): источник истины схемы сейчас ReadMe.txt; перед продом синхронизировать db/schema/*.sql с этой схемой.
+  const sql = `
+    SELECT role, display_name FROM user_profiles
+    WHERE user_id = $1
+  `;
+
+  const { rows } = await query(sql, [UserId]);
   return rows[0];
 }

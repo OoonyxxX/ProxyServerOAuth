@@ -37,3 +37,24 @@ export async function getUserRole(userId) {
   const { rows } = await query(sql, [userId]);
   return rows[0]?.role ?? null;
 }
+
+export async function updateUserOptions(userId, optionsJSON) {
+  const sql = `
+    UPDATE user_profiles
+    SET options = options || $2::jsonb
+    WHERE user_id = $1
+    RETURNING options;
+  `;
+  const { rows } = await query(sql, [userId, optionsJSON]);
+  return rows[0];
+}
+
+export async function getUserOptions(userId) {
+  const sql = `
+    SELECT options
+    FROM user_profiles
+    WHERE user_id = $1
+  `;
+  const { rows } = await query(sql, [userId]);
+  return rows[0];
+}
