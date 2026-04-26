@@ -5,6 +5,8 @@ import axios from "axios";
 
 const router = express.Router();
 
+
+const WEEK = 60 * 60 * 24 * 7;
 // Pre-prod checklist:
 // TODO(P2): добавить rate limit для /google/callback.
 // TODO(P2): решить, валидируем ли id_token или удаляем его из потока.
