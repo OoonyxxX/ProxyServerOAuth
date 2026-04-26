@@ -13,17 +13,17 @@ const router = express.Router();
 
 // GET /api/auth/me
 // Проверка сессии авторизации.
-router.get('/me', (req, res) => {
+router.get('/me', async (req, res) => {
   if (!req.session.user_id) {
     return res.status(401).json({ authorized: false });
   }
 
-  const new_user_data = Auth.getAuthData(req.session.user_id)
-  const new_role = new_user_data.role
+  const new_user_data = await Auth.getAuthData(req.session.user_id)
   const new_display_name = new_user_data.display_name
+  const new_role = new_user_data.role
 
-  req.session.role = new_role;
   req.session.display_name = new_display_name;
+  req.session.role = new_role;
 
   // 4. Явно сохраняем, потом отвечаем
   req.session.save((err) => {
@@ -31,8 +31,8 @@ router.get('/me', (req, res) => {
     return res.json({
       authorized: true,
       user_id: req.session.user_id,
-      display_name: new_role,
-      role: new_display_name,
+      display_name: new_display_name,
+      role: new_role,
       provider: req.session.provider,
       email: req.session.email
     });;
