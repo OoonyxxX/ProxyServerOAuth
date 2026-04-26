@@ -18,7 +18,7 @@ router.get('/me', (req, res) => {
     return res.status(401).json({ authorized: false });
   }
 
-  const new_user_data = getAuthData(req.session.user_id)
+  const new_user_data = Auth.getAuthData(req.session.user_id)
   const new_role = new_user_data.role
   const new_display_name = new_user_data.display_name
 
