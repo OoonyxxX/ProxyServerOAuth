@@ -39,6 +39,21 @@ router.get('/me', async (req, res) => {
   });
 });
 
+router.post('/logout', (req, res) => {
+  req.session.destroy((err) => {
+    if (err) {
+      return res.status(500).json({ error: "Logout failed" });
+    }
+
+    res.clearCookie('sotn.sid', {
+      httpOnly: true,
+      sameSite: "none",
+      secure: true,
+      maxAge: WEEK * 1000,
+    },);
+    return res.json({ success: true });
+  });
+});
 
 // GET /api/auth/google/login
 // Переадресация на Google OAuth.
