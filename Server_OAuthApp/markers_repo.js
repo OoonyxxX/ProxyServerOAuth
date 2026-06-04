@@ -82,9 +82,9 @@ export async function upsertMarker(m) {
   const sql = `
     insert into markers (
       id, name, description, icon_id, lat, lng, reg_id, under_ground, height,
-      color_r, color_g, color_b
+      color_r, color_g, color_b, is_collectible
     )
-    values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+    values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
     on conflict (id) do update set
       name = excluded.name,
       description = excluded.description,
@@ -97,6 +97,7 @@ export async function upsertMarker(m) {
       color_r = excluded.color_r,
       color_g = excluded.color_g,
       color_b = excluded.color_b,
+      is_collectible = excluded.is_collectible,
       updated_at = now()
     returning *;
   `;
@@ -114,6 +115,7 @@ export async function upsertMarker(m) {
     m.color_r ?? 255,
     m.color_g ?? 255,
     m.color_b ?? 255,
+    m.is_collectible
   ];
 
   const { rows } = await query(sql, params);
@@ -129,7 +131,7 @@ export async function upsertMarkersBatch(markers) {
   return tx(async (client) => {
     const cols = [
       "id", "name", "description", "icon_id", "lat", "lng", "reg_id", "under_ground", "height",
-      "color_r", "color_g", "color_b",
+      "color_r", "color_g", "color_b", "is_collectible"
     ];
 
     const values = [];
@@ -147,7 +149,8 @@ export async function upsertMarkersBatch(markers) {
         m.height ?? 0,
         m.color_r ?? 255,
         m.color_g ?? 255,
-        m.color_b ?? 255
+        m.color_b ?? 255,
+        m.is_collectible
       );
       const ph = cols.map((_, j) => `$${base + j + 1}`).join(",");
       return `(${ph})`;
