@@ -7,6 +7,7 @@ import connectPgSimple from "connect-pg-simple";
 import markerRouter from "./markers_routes.js";
 import authRouter from "./auth_routes.js";
 import userRouter from "./users_routes.js";
+import appRouter from "./app_routes.js";
 import { pool } from "./db.js";
 
 const app = express();
@@ -50,6 +51,7 @@ app.use(session({
 app.use("/api/markers", markerRouter);
 app.use("/api/auth", authRouter);
 app.use("/api/users", userRouter);
+app.use("/api/app", appRouter);
 
 app.use((err, req, res, next) => {
   console.error(err);
