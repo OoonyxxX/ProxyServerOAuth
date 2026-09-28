@@ -82,6 +82,7 @@ router.get("/all", async (req, res, next) => {
     const rows = await Markers.getAllMarkers(userId);
     res.json(rows);
   } catch (err) {
+    console.error("GET /api/markers/all failed:", err);
     next(err);
   }
 });
@@ -95,6 +96,7 @@ router.get("/collected", async (req, res, next) => {
     const rows = await Markers.getAllCollectedMarkers(userId);
     res.json(rows);
   } catch (err) {
+    console.error("GET /api/markers/collected failed:", err);
     next(err);
   }
 });
@@ -151,6 +153,7 @@ router.get("/filter", async (req, res, next) => {
     
     res.json(rows);
   } catch (err) {
+    console.error("GET /api/markers/filter failed:", err);
     next(err);
   }
 });
@@ -171,6 +174,7 @@ router.post("/single", async (req, res, next) => {
     const row = await Markers.upsertMarker(marker);
     res.json(row);
   } catch (err) {
+    console.error("POST /api/markers/single failed:", err);
     next(err);
   }
 });
@@ -201,6 +205,7 @@ router.post("/array", async (req, res, next) => {
     const result = await Markers.upsertMarkersBatch(markers);
     res.json(result);
   } catch (err) {
+    console.error("POST /api/markers/array failed:", err);
     next(err);
   }
 });
@@ -220,6 +225,7 @@ router.post("/collected/single", async (req, res, next) => {
     const row = await Markers.setCollectedMarker(markerId, userId);
     res.json(row);
   } catch (err) {
+    console.error("POST /api/markers/collected/single failed:", err);
     next(err);
   }
 });
@@ -248,6 +254,7 @@ router.post("/collected/array", async (req, res, next) => {
     const rows = await Markers.addCollectedMarkersBatch(markerIds, userId);
     res.json(rows);
   } catch (err) {
+    console.error("POST /api/markers/collected/array failed:", err);
     next(err);
   }
 });
@@ -268,8 +275,9 @@ router.delete("/single", async (req, res, next) => {
     const deleted = await Markers.deleteMarker(markerId);
     if (!deleted) return res.status(404).json({ error: "not found" });
     res.json(deleted);
-  } catch (e) {
-    next(e);
+  } catch (err) {
+    console.error("DELETE /api/markers/single failed:", err);
+    next(err);
   }
 });
 
@@ -297,8 +305,9 @@ router.delete("/array", async (req, res, next) => {
 
     const deleted = await Markers.deleteMarkersBatch(markerIds);
     res.json(deleted);
-  } catch (e) {
-    next(e);
+  } catch (err) {
+    console.error("DELETE /api/markers/array failed:", err);
+    next(err);
   }
 });
 

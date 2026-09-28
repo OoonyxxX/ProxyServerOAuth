@@ -40,6 +40,7 @@ router.patch("/me/name", async (req, res, next) => {
     req.session.display_name = row.display_name;
     res.json(row);
   } catch (err) {
+    console.error("PATCH /api/users/me/name failed:", err);
     next(err);
   }
 });
@@ -73,6 +74,7 @@ router.patch("/user/role", async (req, res, next) => {
 
     res.json(row);
   } catch (err) {
+    console.error("PATCH /api/users/user/role failed:", err);
     next(err);
   }
 });
@@ -118,31 +120,37 @@ router.patch("/user/options", async (req, res, next) => {
 
     res.json(row);
   } catch (err) {
+    console.error("PATCH /api/users/user/options failed:", err);
     next(err);
   }
 });
 
 router.get("/user/options", async (req, res, next) => {
-  const userId = req.session.user_id;
-  if (!userId) return res.status(401).json({ error: "Unauthorized" });
+  try {
+    const userId = req.session.user_id;
+    if (!userId) return res.status(401).json({ error: "Unauthorized" });
 
-  const row = await Users.getUserOptions(userId);
+    const row = await Users.getUserOptions(userId);
 
-  const defaultOptions = {
-    METVisible: true,
-    customCursor: true,
-    instantFilter: true,
-    theme: "Northern Lights"
-  };
+    const defaultOptions = {
+      METVisible: true,
+      customCursor: true,
+      instantFilter: true,
+      theme: "Northern Lights"
+    };
 
-  const dbOptions = row?.options ?? {};
+    const dbOptions = row?.options ?? {};
 
-  res.json({
-    options: {
-      ...defaultOptions,
-      ...dbOptions,
-    },
-  });
+    res.json({
+      options: {
+        ...defaultOptions,
+        ...dbOptions,
+      },
+    });
+  } catch (err) {
+    console.error("GET /api/users/user/options failed:", err);
+    next(err);
+  }
 });
 
 export default router;

@@ -13,6 +13,7 @@ router.get("/status", async (req, res, next) => {
     const maintenance = row.mode === 'maintenance' ? (VALID_ROLES.includes(userRole) ? 'admin_maintenance' : 'maintenance') : 'normal';
     res.json({ maintenance: maintenance });
   } catch (err) {
+    console.error("GET /api/app/status failed:", err);
     next(err);
   }
 });

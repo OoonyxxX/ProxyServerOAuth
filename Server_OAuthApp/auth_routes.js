@@ -12,67 +12,82 @@ const WEEK = 60 * 60 * 24 * 7;
 // GET /api/auth/me
 // Проверка сессии авторизации.
 router.get('/me', async (req, res) => {
-  if (!req.session.user_id) {
-    return res.status(401).json({ authorized: false });
+  try {
+    if (!req.session.user_id) {
+      return res.status(401).json({ authorized: false });
+    }
+
+    const new_user_data = await Auth.getAuthData(req.session.user_id)
+    const new_display_name = new_user_data.display_name
+    const new_role = new_user_data.role
+
+    req.session.display_name = new_display_name;
+    req.session.role = new_role;
+
+    // 4. Явно сохраняем, потом отвечаем
+    req.session.save((err) => {
+      if (err) return next(err);
+      return res.json({
+        authorized: true,
+        user_id: req.session.user_id,
+        display_name: new_display_name,
+        role: new_role,
+        provider: req.session.provider,
+        email: req.session.email
+      });;
+    });
+  } catch (err) {
+    console.error("GET /api/auth/me failed:", err);
+    next(err);
   }
-
-  const new_user_data = await Auth.getAuthData(req.session.user_id)
-  const new_display_name = new_user_data.display_name
-  const new_role = new_user_data.role
-
-  req.session.display_name = new_display_name;
-  req.session.role = new_role;
-
-  // 4. Явно сохраняем, потом отвечаем
-  req.session.save((err) => {
-    if (err) return next(err);
-    return res.json({
-      authorized: true,
-      user_id: req.session.user_id,
-      display_name: new_display_name,
-      role: new_role,
-      provider: req.session.provider,
-      email: req.session.email
-    });;
-  });
 });
 
 router.post('/logout', (req, res) => {
-  req.session.destroy((err) => {
-    if (err) {
-      return res.status(500).json({ error: "Logout failed" });
-    }
+  try {
+    req.session.destroy((err) => {
+      if (err) {
+        return res.status(500).json({ error: "Logout failed" });
+      }
 
-    res.clearCookie('sotn.sid', {
-      httpOnly: true,
-      sameSite: "none",
-      secure: true,
-      maxAge: WEEK * 1000,
-    },);
-    return res.json({ success: true });
-  });
+      res.clearCookie('sotn.sid', {
+        httpOnly: true,
+        sameSite: "none",
+        secure: true,
+        maxAge: WEEK * 1000,
+      },);
+      return res.json({ success: true });
+    });
+  } catch (err) {
+    console.error("POST /api/auth/logout failed:", err);
+    next(err);
+  }
 });
 
 // GET /api/auth/google/login
 // Переадресация на Google OAuth.
 router.get("/google/login", (req, res, next) => {
-  const state = crypto.randomBytes(16).toString("hex");
-  req.session.oauthState = state;
+  try {
+    const state = crypto.randomBytes(16).toString("hex");
+    req.session.oauthState = state;
 
-  const params = new URLSearchParams({
-    client_id: process.env.GOOGLE_CLIENT_ID,
-    redirect_uri: process.env.GOOGLE_REDIRECT_URI,
-    response_type: "code",
-    scope: "openid email profile",
-    state,
-  });
+    const params = new URLSearchParams({
+      client_id: process.env.GOOGLE_CLIENT_ID,
+      redirect_uri: process.env.GOOGLE_REDIRECT_URI,
+      response_type: "code",
+      scope: "openid email profile",
+      state,
+    });
 
-  const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
+    const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
 
-  req.session.save((err) => {
-    if (err) return next(err);
-    return res.redirect(googleAuthUrl);
-  });
+    req.session.save((err) => {
+      if (err) return next(err);
+      return res.redirect(googleAuthUrl);
+    });
+  } catch (err) {
+    console.error("GET /api/auth/google/login failed:", err);
+    next(err);
+  }
 });
 
 // GET /api/auth/google/callback
@@ -138,8 +153,9 @@ router.get("/google/callback", async (req, res, next) => {
       });
     });
 
-  } catch (e) {
-    next(e);
+  } catch (err) {
+    console.error("GET /api/auth/google/callback failed:", err);
+    next(err);
   }
 });
 
