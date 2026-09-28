@@ -132,11 +132,11 @@ router.get("/filter", async (req, res, next) => {
     }
     const iconTokens = parsedIcon.value;
 
-    const parsed_content_types = parseTokenArray(req.query.contentTypesTokens);
+    const parsed_content_types = parseTokenArray(req.query.contentTypeTokens);
     if (!parsed_content_types.ok) {
-      return res.status(400).json({ error: "contentTypesTokens must contain tokens like +<content_type> or -<content_type>" });
+      return res.status(400).json({ error: "contentTypeTokens must contain tokens like +<content_type> or -<content_type>" });
     }
-    const contentTypesTokens = parsed_content_types.value;
+    const contentTypeTokens = parsed_content_types.value;
 
     const parsed_content_ids = parseTokenArray(req.query.contentIdTokens);
     if (!parsed_content_ids.ok) {
@@ -145,11 +145,11 @@ router.get("/filter", async (req, res, next) => {
     const contentIdTokens = parsed_content_ids.value;
 
 
-    if ([userIdToken, regionTokens, iconTokens, contentTypesTokens, contentIdTokens, underGround].every(v => v == null)) {
+    if ([userIdToken, regionTokens, iconTokens, contentTypeTokens, contentIdTokens, underGround].every(v => v == null)) {
       return res.status(400).json({ error: "At least one filter parameter is required" });
     }
 
-    const rows = await Markers.getMarkersByFilter(userIdToken, regionTokens, iconTokens, contentTypesTokens, contentIdTokens, underGround);
+    const rows = await Markers.getMarkersByFilter(userIdToken, regionTokens, iconTokens, contentTypeTokens, contentIdTokens, underGround);
     
     res.json(rows);
   } catch (err) {
