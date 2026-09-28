@@ -174,7 +174,7 @@ export async function upsertMarker(m) {
       ) as content_item(value)
       on conflict (marker_id, content_type, content_id)
       do nothing
-      returning content_type, content_id;
+      returning content_type, content_id
     )
     SELECT
       nm.*,
@@ -217,23 +217,37 @@ export async function upsertMarker(m) {
 
 export async function upsertMarkersBatch(markers) {
   if (!markers.length) return { rows: [], count: 0 };
+
   if (markers.length > MAX_MARKERS_BATCH) {
     throw new Error(`Batch size exceeds limit (${MAX_MARKERS_BATCH})`);
   }
 
   return tx(async (client) => {
     const markerCols = [
-      "id", "name", "description", "icon_id", "lat", "lng", "reg_id", "under_ground", "height",
-      "color_r", "color_g", "color_b", "is_collectible"
+      "id",
+      "name",
+      "description",
+      "icon_id",
+      "lat",
+      "lng",
+      "reg_id",
+      "under_ground",
+      "height",
+      "color_r",
+      "color_g",
+      "color_b",
+      "is_collectible"
     ];
 
     const paramsPerMarker = markerCols.length + 1;
-    const values = [];
 
+    const values = [];
     const markerRows = [];
     const contentRows = [];
+
     markers.forEach((m, i) => {
       const base = i * paramsPerMarker;
+
       values.push(
         m.id,
         m.name,
@@ -247,9 +261,10 @@ export async function upsertMarkersBatch(markers) {
         m.color_r ?? 255,
         m.color_g ?? 255,
         m.color_b ?? 255,
-        m.is_collectible ?? false,
-        JSON.stringify(m.content ?? {})
+        m.is_collectible,
+        m.content
       );
+
       const markerPlaceholders = markerCols
         .map((_, columnIndex) => `$${base + columnIndex + 1}`)
         .join(", ");
@@ -269,11 +284,14 @@ export async function upsertMarkersBatch(markers) {
         VALUES
           ${contentRows.join(",\n")}
       ),
+
       new_marker AS (
-        insert into markers (${markerCols.join(", ")})
-        values
-        ${markerRows.join(",\n")}
-        on conflict (id) do update set
+        INSERT INTO markers (
+          ${markerCols.join(", ")}
+        )
+        VALUES
+          ${markerRows.join(",\n")}
+        ON CONFLICT (id) DO UPDATE SET
           name = excluded.name,
           description = excluded.description,
           icon_id = excluded.icon_id,
@@ -287,16 +305,18 @@ export async function upsertMarkersBatch(markers) {
           color_b = excluded.color_b,
           is_collectible = excluded.is_collectible,
           updated_at = now()
-        returning *
+        RETURNING *
       ),
+
       deleted_content AS (
         DELETE FROM marker_content mc
         USING input_content input
         WHERE mc.marker_id = input.marker_id
-        RETURNING marker_id
+        RETURNING mc.marker_id
       ),
-      new_marker_content as (
-        insert into marker_content (
+
+      new_marker_content AS (
+        INSERT INTO marker_content (
           marker_id,
           content_type,
           content_id
@@ -306,40 +326,60 @@ export async function upsertMarkersBatch(markers) {
           content_entry.key,
           content_item.value
         FROM input_content input
+
         CROSS JOIN LATERAL jsonb_each(
           input.content
         ) AS content_entry(key, value)
-        cross join lateral jsonb_array_elements_text(
+
+        CROSS JOIN LATERAL jsonb_array_elements_text(
           content_entry.value
-        ) as content_item(value)
-        on conflict ( marker_id, content_type, content_id )
-        do nothing
-        RETURNING marker_id, content_type, content_id
+        ) AS content_item(value)
+
+        ON CONFLICT (
+          marker_id,
+          content_type,
+          content_id
+        )
+        DO NOTHING
+
+        RETURNING
+          marker_id,
+          content_type,
+          content_id
       )
+
       SELECT
         nm.*,
-        COALESCE((
-          SELECT jsonb_object_agg(
-            grouped.content_type,
-            grouped.content_ids
-          )
-          FROM (
-            SELECT
-              nmc.content_type,
-              jsonb_agg(
-                nmc.content_id
-                ORDER BY nmc.content_id
-              ) AS content_ids
-            FROM new_marker_content nmc
-            WHERE nmc.marker_id = nm.id
-            GROUP BY nmc.content_type
-          ) grouped
-        ), '{}'::jsonb) AS content
+        COALESCE(
+          (
+            SELECT jsonb_object_agg(
+              grouped.content_type,
+              grouped.content_ids
+            )
+            FROM (
+              SELECT
+                nmc.content_type,
+                jsonb_agg(
+                  nmc.content_id
+                  ORDER BY nmc.content_id
+                ) AS content_ids
+              FROM new_marker_content nmc
+              WHERE nmc.marker_id = nm.id
+              GROUP BY nmc.content_type
+            ) grouped
+          ),
+          '{}'::jsonb
+        ) AS content
+
       FROM new_marker nm;
     `;
 
     const { rows } = await client.query(sql, values);
-    return { rows, count: rows.length };
+
+    return {
+      rows,
+      count: rows.length
+    };
   });
 }
 
