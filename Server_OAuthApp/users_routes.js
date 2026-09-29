@@ -13,6 +13,7 @@ const VALID_OPTIONS = {
   customCursor: "boolean",
   instantFilter: "boolean",
   theme: ["White", "Dark", "Northern Lights", "Red Death"],
+  contentPreview: "boolean",
 };
 
 function isValidDisplayName(value) {
