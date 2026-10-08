@@ -379,6 +379,9 @@ export async function upsertMarkersBatch(markers) {
       FROM new_marker nm;
     `;
 
+    console.log("Parameter $15:", values[14]);
+    console.log("All parameters:", values);
+
     const { rows } = await client.query(sql, values);
 
     return {
