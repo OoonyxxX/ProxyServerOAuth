@@ -171,6 +171,8 @@ router.post("/single", async (req, res, next) => {
       return res.status(400).json({ error: "Invalid marker payload" });
     }
 
+    console.log("User Id:", req.session?.user_id);
+    console.log("User Role:", req.session?.role);
     const row = await Markers.upsertMarker(marker);
     res.json(row);
   } catch (err) {
@@ -202,6 +204,8 @@ router.post("/array", async (req, res, next) => {
       return res.status(400).json({ error: "Invalid marker payload in array" });
     }
 
+    console.log("User Id:", req.session?.user_id);
+    console.log("User Role:", req.session?.role);
     const result = await Markers.upsertMarkersBatch(markers);
     res.json(result);
   } catch (err) {
@@ -272,6 +276,8 @@ router.delete("/single", async (req, res, next) => {
       return res.status(400).json({ error: "markerId is required" });
     }
 
+    console.log("User Id:", req.session?.user_id);
+    console.log("User Role:", req.session?.role);
     const deleted = await Markers.deleteMarker(markerId);
     if (!deleted) return res.status(404).json({ error: "not found" });
     res.json(deleted);
@@ -303,6 +309,8 @@ router.delete("/array", async (req, res, next) => {
       return res.status(400).json({ error: "markerIds must contain non-empty strings" });
     }
 
+    console.log("User Id:", req.session?.user_id);
+    console.log("User Role:", req.session?.role);
     const deleted = await Markers.deleteMarkersBatch(markerIds);
     res.json(deleted);
   } catch (err) {
