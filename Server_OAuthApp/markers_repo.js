@@ -136,7 +136,7 @@ export async function upsertMarker(m) {
         id, name, description, icon_id, lat, lng, reg_id, under_ground, height,
         color_r, color_g, color_b, is_collectible, uaid
       )
-      values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+      values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
       on conflict (id) do update set
         name = excluded.name,
         description = excluded.description,
@@ -150,8 +150,8 @@ export async function upsertMarker(m) {
         color_g = excluded.color_g,
         color_b = excluded.color_b,
         is_collectible = excluded.is_collectible,
+        uaid = excluded.uaid,
         updated_at = now()
-        uaid = excluded.uaid
       returning *
     ),
     deleted_content AS (
@@ -169,7 +169,7 @@ export async function upsertMarker(m) {
         $1,
         content_entry.key,
         content_item.value
-      from jsonb_each($14::jsonb) AS content_entry(key, value)
+      from jsonb_each($15::jsonb) AS content_entry(key, value)
       cross join lateral jsonb_array_elements_text(
         content_entry.value
       ) as content_item(value)
@@ -209,8 +209,8 @@ export async function upsertMarker(m) {
     m.color_g ?? 255,
     m.color_b ?? 255,
     m.is_collectible,
-    m.content,
-    m.uaid
+    m.uaid,
+    m.content
   ];
 
   const { rows } = await query(sql, params);
@@ -265,8 +265,8 @@ export async function upsertMarkersBatch(markers) {
         m.color_g ?? 255,
         m.color_b ?? 255,
         m.is_collectible,
-        m.content,
-        m.uaid
+        m.uaid,
+        m.content
       );
 
       const markerPlaceholders = markerCols
@@ -308,8 +308,8 @@ export async function upsertMarkersBatch(markers) {
           color_g = excluded.color_g,
           color_b = excluded.color_b,
           is_collectible = excluded.is_collectible,
-          updated_at = now(),
-          uaid = excluded.uaid
+          uaid = excluded.uaid,
+          updated_at = now()
         RETURNING *
       ),
 
