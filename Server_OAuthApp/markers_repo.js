@@ -134,9 +134,9 @@ export async function upsertMarker(m) {
     WITH new_marker AS (
       insert into markers (
         id, name, description, icon_id, lat, lng, reg_id, under_ground, height,
-        color_r, color_g, color_b, is_collectible
+        color_r, color_g, color_b, is_collectible, uaid
       )
-      values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+      values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
       on conflict (id) do update set
         name = excluded.name,
         description = excluded.description,
@@ -151,6 +151,7 @@ export async function upsertMarker(m) {
         color_b = excluded.color_b,
         is_collectible = excluded.is_collectible,
         updated_at = now()
+        uaid = excluded.uaid
       returning *
     ),
     deleted_content AS (
@@ -208,7 +209,8 @@ export async function upsertMarker(m) {
     m.color_g ?? 255,
     m.color_b ?? 255,
     m.is_collectible,
-    m.content
+    m.content,
+    m.uaid
   ];
 
   const { rows } = await query(sql, params);
@@ -236,7 +238,8 @@ export async function upsertMarkersBatch(markers) {
       "color_r",
       "color_g",
       "color_b",
-      "is_collectible"
+      "is_collectible",
+      "uaid"
     ];
 
     const paramsPerMarker = markerCols.length + 1;
@@ -262,7 +265,8 @@ export async function upsertMarkersBatch(markers) {
         m.color_g ?? 255,
         m.color_b ?? 255,
         m.is_collectible,
-        m.content
+        m.content,
+        m.uaid
       );
 
       const markerPlaceholders = markerCols
@@ -304,7 +308,8 @@ export async function upsertMarkersBatch(markers) {
           color_g = excluded.color_g,
           color_b = excluded.color_b,
           is_collectible = excluded.is_collectible,
-          updated_at = now()
+          updated_at = now(),
+          uaid = excluded.uaid
         RETURNING *
       ),
 
